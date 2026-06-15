@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+@theme {
+  --color-marine-50: #0f172a;
+  --color-marine-100: #1e293b;
+  --color-marine-200: #334155;
+  --color-marine-300: #475569;
+  --color-marine-400: #0ea5e9;
+  --color-marine-500: #0ea5e9;
+  --color-marine-600: #0286c7;
+  --color-marine-700: #036ba1;
+  --color-marine-800: #d2e4f5; /* Light ice-blue border */
+  --color-marine-850: #c0daf2; /* Slightly darker light blue border */
+  --color-marine-900: #1e3a8a; /* Deep blue accents */
+  --color-marine-950: #f4f8fc; /* Very fresh light ice-blue body bg */
+  --color-marine-card: #ffffff; /* Pure white card background */
+  --color-marine-sidebar: #ebf3fc; /* Very soft light blue sidebar background */
+
+  --color-accent-teal: #0ea5e9;
+  --color-accent-cyan: #06b6d4;
+  --color-accent-blue: #2563eb;
+
+  /* Invert slate colors in theme for light mode readability */
+  --color-slate-100: #334155;
+  --color-slate-200: #475569;
+  --color-slate-300: #475569;
+  --color-slate-400: #57687e;
+  --color-slate-500: #64748b;
+  
+  --animate-float: float 4s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 2.5s ease-in-out infinite;
+  --animate-liquid: liquid 8s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 4px rgba(6, 182, 212, 0.2)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 12px rgba(20, 184, 166, 0.4)); }
+  }
+  @keyframes liquid {
+    0%, 100% { border-radius: 60% 40% 70% 30% / 40% 50% 60% 50%; }
+    50% { border-radius: 40% 60% 30% 70% / 50% 60% 40% 50%; }
+  }
+}
+
+body {
+  @apply bg-marine-950 text-slate-100 font-sans antialiased overflow-x-hidden;
+}
+
+/* Headings and white text elements on light layouts should be dark slate/navy */
+.glass-panel h1, .glass-panel h2, .glass-panel h3, .glass-panel h4,
+.glass-panel-glow h1, .glass-panel-glow h2, .glass-panel-glow h3,
+main h1, main h2, main h3, main h4,
+aside h1, aside h2, aside h3, aside h4,
+.glass-panel .text-white,
+.glass-panel-glow .text-white,
+main .text-white,
+aside .text-white {
+  color: #0f172a;
+}
+
+/* Ensure headings and text inside dark background containers remain white */
+.bg-gradient-to-r h1, .bg-gradient-to-r h2, .bg-gradient-to-r h3, .bg-gradient-to-r h4,
+.bg-gradient-to-br h1, .bg-gradient-to-br h2, .bg-gradient-to-br h3, .bg-gradient-to-br h4,
+.bg-marine-900 h1, .bg-marine-900 h2, .bg-marine-900 h3, .bg-marine-900 h4,
+.bg-slate-950 h1, .bg-slate-950 h2, .bg-slate-950 h3, .bg-slate-950 h4,
+.bg-gradient-to-r .text-white,
+.bg-gradient-to-br .text-white,
+.bg-marine-900 .text-white,
+.bg-slate-950 .text-white {
+  color: #ffffff !important;
+}
+
+/* Input text fields must show up dark and sharp */
+input, select, textarea {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+/* Ensure button text and specific background actions stay crisp white */
+button.text-white,
+a.text-white,
+button .text-white,
+.bg-sky-600,
+.bg-cyan-600,
+.bg-teal-600,
+.bg-emerald-600,
+.bg-rose-600,
+.bg-gradient-to-r,
+.bg-gradient-to-br,
+.inline-flex.bg-sky-600,
+.inline-flex.bg-cyan-600,
+.inline-flex.bg-teal-600,
+.inline-flex.bg-emerald-600,
+.inline-flex.bg-rose-600 {
+  color: #ffffff !important;
+}
+
+/* Override bright text colors to use dark equivalents for proper light theme contrast */
+.text-cyan-400 {
+  color: #0284c7 !important; /* sky-700 or cyan-700 */
+}
+.text-teal-400 {
+  color: #0f766e !important; /* teal-700 */
+}
+.text-sky-400 {
+  color: #0284c7 !important; /* sky-700 */
+}
+.text-cyan-300 {
+  color: #0369a1 !important;
+}
+.text-emerald-400 {
+  color: #10b981 !important; /* emerald-600 (darker emerald) */
+}
+.text-rose-400 {
+  color: #e11d48 !important; /* rose-600 */
+}
+.text-amber-400 {
+  color: #d97706 !important; /* amber-600 */
+}
+.text-amber-300 {
+  color: #b45309 !important;
+}
+.text-slate-300 {
+  color: #475569 !important;
+}
+.text-slate-400 {
+  color: #64748b !important;
+}
+.text-slate-200 {
+  color: #334155 !important;
+}
+
+/* Force hover text classes to override base text color overrides */
+.hover\:text-white:hover {
+  color: #ffffff !important;
+}
+.hover\:text-slate-900:hover {
+  color: #0f172a !important;
+}
+button.border-marine-880:hover {
+  color: #ffffff !important;
+}
+
+/* Override dark/neon containers to have light-mode equivalent colors */
+.bg-emerald-500\/10 {
+  background-color: rgba(16, 185, 129, 0.12) !important; /* Light green pill */
+  color: #10b981 !important;
+}
+.bg-rose-500\/10 {
+  background-color: rgba(244, 63, 94, 0.12) !important; /* Light red pill */
+  color: #e11d48 !important;
+}
+.bg-amber-500\/10 {
+  background-color: rgba(245, 158, 11, 0.12) !important; /* Light amber pill */
+  color: #d97706 !important;
+}
+
+/* Dev OTP Box in Login */
+.bg-cyan-950\/60 {
+  background-color: #e0f2fe !important; /* Light sky blue */
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
+}
+
+/* Red Logout / Cancel Button Overrides */
+.bg-rose-950\/40 {
+  background-color: #ffe4e6 !important; /* Light rose-100 */
+  border-color: #fecdd3 !important;
+  color: #e11d48 !important;
+}
+.bg-rose-950\/40:hover {
+  background-color: #fecdd3 !important;
+  color: #be123c !important;
+}
+
+/* Assign Subscription Plan buttons */
+.bg-cyan-600\/10, .bg-sky-600\/10 {
+  background-color: #e0f2fe !important;
+  border-color: #bae6fd !important;
+  color: #0284c7 !important;
+}
+.bg-cyan-600\/10:hover, .bg-sky-600\/10:hover {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* Light theme info boxes */
+.bg-teal-500\/10, .bg-teal-600\/10 {
+  background-color: #ccfbf1 !important;
+  border-color: #99f6e4 !important;
+  color: #0f766e !important;
+}
+
+/* Custom Scrollbars to match light ocean theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-marine-950;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-marine-800 rounded-full border border-marine-950 hover:bg-marine-700;
+}
+
+/* Glassmorphism helpers updated for Light theme */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+}
+
+.glass-panel-glow {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  box-shadow: 0 10px 30px rgba(6, 182, 212, 0.08);
+}
+
+/* Animated wave effect for authentication background matching card */
+.wave-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  overflow: hidden;
+  line-height: 0;
+  transform: rotate(180deg);
+}
+
+.wave-container svg {
+  position: relative;
+  display: block;
+  width: calc(150% + 1.3px);
+  height: 90px;
+  transform: rotateY(180deg);
+}
+
+.wave-container .shape-fill {
+  fill: #ffffff; /* White to match the login card background */
+}
+
+/* Ripple styling helper for clicks */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100px;
+  height: 100px;
+  background: rgba(14, 165, 233, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.5s, opacity 0.5s;
+}
+
+.ripple-effect:active::after {
+  transform: translate(-50%, -50%) scale(2);
+  opacity: 1;
+  transition: 0s;
+}
+
+/* Fix white-on-white text during hover on elements with hover:bg-marine-card */
+.hover\:bg-marine-card:hover {
+  background-color: #dbeafe !important; /* Soft light blue hover background */
+  color: #0f172a !important; /* Dark navy text for optimal contrast */
+}
+
+/* Ensure SVG/icon children inside these hovered elements inherit the dark color */
+.hover\:bg-marine-card:hover svg {
+  color: #0f172a !important;
+  stroke: #0f172a !important;
+}
+
+/* Water drop-splash transition between tabs */
+@keyframes dropSplash {
+  0% {
+    transform: translateY(-12px) scaleY(1.02);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(2px) scaleY(0.98);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-tab-transition {
+  animation: dropSplash 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+
+

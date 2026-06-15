@@ -1,0 +1,21 @@
+const express = require('express');
+const router = express.Router();
+const {
+  createPlan,
+  getPlans,
+  getVendors,
+  assignSubscription,
+  deletePlan
+} = require('../controllers/adminController');
+const { protect, authorize } = require('../middleware/auth');
+
+router.use(protect);
+router.use(authorize('admin'));
+
+router.post('/plans', createPlan);
+router.get('/plans', getPlans);
+router.delete('/plans/:id', deletePlan);
+router.get('/vendors', getVendors);
+router.post('/assign-subscription', assignSubscription);
+
+module.exports = router;
