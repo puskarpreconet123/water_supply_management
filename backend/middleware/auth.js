@@ -5,9 +5,11 @@ const User = require('../models/User');
 const protect = async (req, res, next) => {
   let token;
 
-  // Read header
+  // Read header or query parameter
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
   }
 
   if (!token) {

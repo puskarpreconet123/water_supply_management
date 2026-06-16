@@ -20,6 +20,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  quantity: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   imageUrl: {
     type: String,
     trim: true

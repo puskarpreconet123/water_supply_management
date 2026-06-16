@@ -10,7 +10,7 @@ const { generateReportPDF } = require('../utils/pdfGenerator');
 // @access  Private (Vendor or Customer)
 exports.createOrder = async (req, res) => {
   try {
-    const { customerId, products, bottlesDelivered, bottlesReturned, status } = req.body;
+    const { customerId, products, bottlesDelivered, bottlesReturned, status, deliverySlot } = req.body;
     const isVendor = req.user.role === 'vendor';
     const vendorId = isVendor ? req.user._id : req.body.vendorId;
 
@@ -31,6 +31,7 @@ exports.createOrder = async (req, res) => {
     // Calculate total amount from products
     let totalAmount = 0;
     const orderProducts = [];
+    let totalQty = 0;
 
     for (const item of products) {
       const dbProduct = await Product.findById(item.productId);
@@ -40,6 +41,7 @@ exports.createOrder = async (req, res) => {
       const itemPrice = dbProduct.price;
       const itemTotal = itemPrice * item.quantity;
       totalAmount += itemTotal;
+      totalQty += item.quantity;
 
       orderProducts.push({
         productId: dbProduct._id,
@@ -54,6 +56,10 @@ exports.createOrder = async (req, res) => {
     const finalDelivered = isVendor ? (bottlesDelivered || 0) : 0;
     const finalReturned = isVendor ? (bottlesReturned || 0) : 0;
 
+    if (orderStatus === 'delivered' && finalDelivered < totalQty) {
+      return res.status(400).json({ success: false, message: 'Delivered bottles cannot be less than the product quantity' });
+    }
+
     const order = await Order.create({
       vendorId,
       customerId,
@@ -62,6 +68,7 @@ exports.createOrder = async (req, res) => {
       bottlesDelivered: finalDelivered,
       bottlesReturned: finalReturned,
       status: orderStatus,
+      deliverySlot: deliverySlot || '',
       deliveryDate: orderStatus === 'delivered' ? new Date() : null
     });
 
@@ -102,8 +109,13 @@ exports.updateOrderStatus = async (req, res) => {
     order.status = status || order.status;
     
     if (order.status === 'delivered') {
-      order.bottlesDelivered = bottlesDelivered !== undefined ? bottlesDelivered : 0;
-      order.bottlesReturned = bottlesReturned !== undefined ? bottlesReturned : 0;
+      const finalDelivered = bottlesDelivered !== undefined ? Number(bottlesDelivered) : 0;
+      const totalQty = order.products.reduce((acc, curr) => acc + curr.quantity, 0);
+      if (finalDelivered < totalQty) {
+        return res.status(400).json({ success: false, message: 'Delivered bottles cannot be less than the product quantity' });
+      }
+      order.bottlesDelivered = finalDelivered;
+      order.bottlesReturned = bottlesReturned !== undefined ? Number(bottlesReturned) : 0;
       order.deliveryDate = new Date();
     }
 

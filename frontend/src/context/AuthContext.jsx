@@ -143,6 +143,24 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Refresh user details
+  const refreshUser = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUser(data.user);
+      }
+    } catch (err) {
+      console.error('Failed to refresh profile:', err);
+    }
+  };
+
   // Helper fetch function that attaches JWT
   const authFetch = async (endpoint, options = {}) => {
     const headers = {
@@ -186,7 +204,8 @@ export const AuthProvider = ({ children }) => {
       verifyOtp,
       registerCustomer,
       logout,
-      authFetch
+      authFetch,
+      refreshUser
     }}>
       {children}
     </AuthContext.Provider>

@@ -32,6 +32,20 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  razorpayKeyId: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  razorpayKeySecret: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  deliverySlots: {
+    type: [String],
+    default: ['Morning (8 AM - 12 PM)', 'Afternoon (12 PM - 4 PM)', 'Evening (4 PM - 8 PM)']
+  },
   isActive: {
     type: Boolean,
     default: true

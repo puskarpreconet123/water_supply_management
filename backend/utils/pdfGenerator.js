@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
  * Generates a Water Statement PDF and streams it.
  */
 const generateReportPDF = (res, { vendor, customer, orders, payments, stats }) => {
-  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
 
   // Stream directly to response
   doc.pipe(res);
@@ -170,30 +170,47 @@ const generateReportPDF = (res, { vendor, customer, orders, payments, stats }) =
 
       const dateStr = new Date(p.paymentDate).toLocaleDateString();
       const custName = p.customerId?.name || 'Unknown';
+      const payMethod = p.paymentMethod.toUpperCase();
+      const notesText = p.notes || '—';
+      const amountStr = `+ Rs. ${p.amount}`;
       
       doc.fillColor('#334155').fontSize(8);
       const currentY = doc.y;
-      doc.text(dateStr, 55, currentY);
-      doc.text(custName.substring(0, 20), 120, currentY);
-      doc.text(p.paymentMethod.toUpperCase(), 240, currentY);
-      doc.text((p.notes || 'N/A').substring(0, 22), 350, currentY);
-      doc.fillColor('#10b981').text(`+ Rs. ${p.amount}`, 445, currentY, { bold: true });
 
-      doc.y = currentY + 15;
+      // Calculate dynamic row height based on text wrapping
+      const notesHeight = doc.heightOfString(notesText, { width: 90 });
+      const custHeight = doc.heightOfString(custName, { width: 110 });
+      const rowHeight = Math.max(15, notesHeight, custHeight) + 4;
+
+      doc.text(dateStr, 55, currentY);
+      doc.text(custName, 120, currentY, { width: 110 });
+      doc.text(payMethod, 240, currentY, { width: 100 });
+      doc.text(notesText, 350, currentY, { width: 90 });
+      doc.fillColor('#10b981').text(amountStr, 445, currentY, { width: 95, bold: true });
+
+      doc.y = currentY + rowHeight;
     });
   }
 
   // Footer page numbering
-  const pages = doc._bufferedPages;
-  for (let i = 0; i < pages.length; i++) {
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
     doc.switchToPage(i);
+    
+    // Temporarily set bottom margin to 0 to prevent triggering automatic page breaks
+    const oldBottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+    
     doc.fillColor('#94a3b8').fontSize(8);
     doc.text(
-      `Page ${i + 1} of ${pages.length} — Generated automatically by H2O Delivery Platform`,
+      `Page ${i + 1} of ${range.count} — Generated automatically by H2O Delivery Platform`,
       50,
-      800,
-      { align: 'center' }
+      doc.page.height - 30,
+      { align: 'center', width: doc.page.width - 100, lineBreak: false }
     );
+    
+    // Restore bottom margin
+    doc.page.margins.bottom = oldBottomMargin;
   }
 
   // Finalize PDF

@@ -173,7 +173,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-marine-950 text-slate-100">
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-marine-950 text-slate-100">
       
       {/* MOBILE HEADER BAR */}
       <header className="flex md:hidden items-center justify-between p-4 bg-marine-sidebar border-b border-marine-800 z-20">

@@ -50,6 +50,11 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'delivered', 'cancelled'],
     default: 'pending'
   },
+  deliverySlot: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   deliveryDate: {
     type: Date
   },

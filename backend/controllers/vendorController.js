@@ -44,7 +44,7 @@ exports.getSubscription = async (req, res) => {
 // @access  Private (Vendor only)
 exports.addProduct = async (req, res) => {
   try {
-    const { name, price, description, imageUrl } = req.body;
+    const { name, price, description, imageUrl, quantity } = req.body;
 
     if (!name || price === undefined) {
       return res.status(400).json({ success: false, message: 'Please provide name and price' });
@@ -61,6 +61,7 @@ exports.addProduct = async (req, res) => {
       name,
       price,
       description,
+      quantity: quantity || '',
       imageUrl: imageUrl || 'https://images.unsplash.com/photo-1548839130-3fd96cd5bd4d?q=80&w=256' // standard nice water bottle image
     });
 
@@ -92,7 +93,7 @@ exports.getProducts = async (req, res) => {
 // @access  Private (Vendor only)
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, price, description, imageUrl, isActive } = req.body;
+    const { name, price, description, imageUrl, isActive, quantity } = req.body;
     let product = await Product.findById(req.params.id);
 
     if (!product) {
@@ -106,7 +107,7 @@ exports.updateProduct = async (req, res) => {
 
     product = await Product.findByIdAndUpdate(
       req.params.id,
-      { name, price, description, imageUrl, isActive },
+      { name, price, description, imageUrl, isActive, quantity },
       { new: true, runValidators: true }
     );
 
@@ -227,3 +228,107 @@ exports.getCustomers = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Update Vendor Profile & Settings
+// @route   PUT /api/v1/vendor/profile
+// @access  Private (Vendor only)
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, phone, email, address, razorpayKeyId, razorpayKeySecret, password, deliverySlots } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Check if phone is being updated and is already taken
+    if (phone && phone !== user.phone) {
+      if (!/^\d{10}$/.test(phone)) {
+        return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
+      }
+      const phoneExists = await User.findOne({ phone, _id: { $ne: user._id } });
+      if (phoneExists) {
+        return res.status(400).json({ success: false, message: 'Phone number is already in use by another user' });
+      }
+      user.phone = phone;
+    }
+
+    // Check if email is being updated and is already taken
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email: email.toLowerCase(), _id: { $ne: user._id } });
+      if (emailExists) {
+        return res.status(400).json({ success: false, message: 'Email is already in use by another user' });
+      }
+      user.email = email.toLowerCase();
+    }
+
+    if (name) user.name = name;
+    if (address !== undefined) user.address = address;
+    if (razorpayKeyId !== undefined) user.razorpayKeyId = razorpayKeyId;
+    if (razorpayKeySecret !== undefined) user.razorpayKeySecret = razorpayKeySecret;
+    if (deliverySlots !== undefined) user.deliverySlots = deliverySlots;
+
+    if (password) {
+      user.password = password; // pre-save hook will hash this automatically
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile settings updated successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        address: user.address,
+        razorpayKeyId: user.razorpayKeyId,
+        deliverySlots: user.deliverySlots,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update customer ledger (balance & outstanding bottles) manually
+// @route   PUT /api/v1/vendor/customers/:customerId
+// @access  Private (Vendor only)
+exports.updateCustomerLedger = async (req, res) => {
+  try {
+    const { balance, bottlesOutstanding } = req.body;
+    const { customerId } = req.params;
+    const vendorId = req.user._id;
+
+    // Find the relationship
+    const relation = await VendorCustomer.findOne({ vendorId, customerId });
+    if (!relation) {
+      return res.status(404).json({ success: false, message: 'Customer relationship not found' });
+    }
+
+    if (balance !== undefined) {
+      relation.balance = Number(balance);
+    }
+    if (bottlesOutstanding !== undefined) {
+      relation.bottlesOutstanding = Number(bottlesOutstanding);
+    }
+
+    await relation.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Customer ledger updated successfully',
+      data: {
+        relationId: relation._id,
+        customerId: relation.customerId,
+        balance: relation.balance,
+        bottlesOutstanding: relation.bottlesOutstanding
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

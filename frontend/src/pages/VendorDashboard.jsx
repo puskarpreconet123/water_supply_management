@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, API_URL } from '../context/AuthContext';
 import {
   Building, Package, Users, Truck, DollarSign, LogOut, Plus, FileText,
-  AlertTriangle, RefreshCw, CheckCircle, Info, Calendar, Download, Menu, X
+  AlertTriangle, RefreshCw, CheckCircle, Info, Calendar, Download, Menu, X, Settings,
+  IndianRupee, Edit
 } from 'lucide-react';
 
 const VendorDashboard = () => {
-  const { logout, authFetch } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview'); // overview, products, customers, deliveries, payments
+  const { logout, user, authFetch, refreshUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview'); // overview, products, customers, deliveries, payments, settings
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Data states
@@ -28,6 +29,9 @@ const VendorDashboard = () => {
   const [prodName, setProdName] = useState('');
   const [prodPrice, setProdPrice] = useState('');
   const [prodDesc, setProdDesc] = useState('');
+  const [prodQty, setProdQty] = useState('');
+  const [prodIsActive, setProdIsActive] = useState(true);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   // Form states - Customer
   const [custPhone, setCustPhone] = useState('');
@@ -47,6 +51,23 @@ const VendorDashboard = () => {
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('cash');
   const [payNotes, setPayNotes] = useState('');
+
+  // Settings Form States
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [vendorKeyId, setVendorKeyId] = useState('');
+  const [vendorKeySecret, setVendorKeySecret] = useState('');
+  const [profileSlots, setProfileSlots] = useState([]);
+  const [newSlotText, setNewSlotText] = useState('');
+
+  // Form states - Edit Ledger
+  const [showEditLedgerModal, setShowEditLedgerModal] = useState(false);
+  const [selectedCustForLedger, setSelectedCustForLedger] = useState(null);
+  const [ledgerBalance, setLedgerBalance] = useState('');
+  const [ledgerBottles, setLedgerBottles] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -93,32 +114,100 @@ const VendorDashboard = () => {
     fetchData();
   }, []);
 
-  // Handle add product
-  const handleAddProduct = async (e) => {
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || '');
+      setProfilePhone(user.phone || '');
+      setProfileEmail(user.email || '');
+      setProfileAddress(user.address || '');
+      setVendorKeyId(user.razorpayKeyId || '');
+      setVendorKeySecret(user.razorpayKeySecret || '');
+      setProfileSlots(user.deliverySlots || []);
+    }
+  }, [user]);
+
+  // Handle settings update
+  const handleUpdateSettings = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const payload = {
+        name: profileName,
+        phone: profilePhone,
+        email: profileEmail,
+        address: profileAddress,
+        razorpayKeyId: vendorKeyId,
+        razorpayKeySecret: vendorKeySecret,
+        deliverySlots: profileSlots
+      };
+
+      if (profilePassword) {
+        payload.password = profilePassword;
+      }
+
+      const res = await authFetch('/vendor/profile', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+
+      if (res.success) {
+        setSuccess('Profile settings updated successfully!');
+        setProfilePassword('');
+        await refreshUser();
+      } else {
+        setError(res.message || 'Failed to update settings');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle save product (add or update)
+  const handleSaveProduct = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     if (!prodName || !prodPrice) return setError('Name and Price are required');
 
     try {
-      const res = await authFetch('/vendor/products', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: prodName,
-          price: Number(prodPrice),
-          description: prodDesc
-        })
-      });
+      const payload = {
+        name: prodName,
+        price: Number(prodPrice),
+        description: prodDesc,
+        quantity: prodQty,
+        isActive: prodIsActive
+      };
+
+      let res;
+      if (editingProduct) {
+        res = await authFetch(`/vendor/products/${editingProduct._id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await authFetch('/vendor/products', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      }
 
       if (res.success) {
-        setSuccess('Product successfully added!');
+        setSuccess(editingProduct ? 'Product successfully updated!' : 'Product successfully added!');
         setProdName('');
         setProdPrice('');
         setProdDesc('');
+        setProdQty('');
+        setProdIsActive(true);
+        setEditingProduct(null);
         setShowProductModal(false);
         fetchData();
       } else {
-        setError(res.message || 'Failed to add product');
+        setError(res.message || 'Failed to save product');
       }
     } catch (err) {
       setError('Connection failure');
@@ -171,6 +260,9 @@ const VendorDashboard = () => {
     setSuccess('');
     if (!selectedCustId || !selectedProdId || !orderQty) {
       return setError('Please complete all delivery fields');
+    }
+    if (Number(bottlesDelivered) < Number(orderQty)) {
+      return setError('Delivered bottles cannot be less than the product quantity');
     }
 
     try {
@@ -260,10 +352,52 @@ const VendorDashboard = () => {
     }
   };
 
+  const handleEditLedgerClick = (cust) => {
+    setSelectedCustForLedger(cust);
+    setLedgerBalance(cust.balance);
+    setLedgerBottles(cust.bottlesOutstanding);
+    setError('');
+    setSuccess('');
+    setShowEditLedgerModal(true);
+  };
+
+  const handleSaveLedger = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!selectedCustForLedger) return;
+
+    try {
+      const res = await authFetch(`/vendor/customers/${selectedCustForLedger.customerId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          balance: Number(ledgerBalance),
+          bottlesOutstanding: Number(ledgerBottles)
+        })
+      });
+
+      if (res.success) {
+        setSuccess('Customer ledger manually adjusted successfully!');
+        setShowEditLedgerModal(false);
+        fetchData();
+      } else {
+        setError(res.message || 'Failed to update ledger');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    }
+  };
+
   const handleDownloadPDF = (customerId = '') => {
     const token = localStorage.getItem('token');
-    const query = customerId ? `?customerId=${customerId}` : '';
-    window.open(`${API_URL}/orders/pdf-report${query}&token=${token}`, '_blank');
+    const params = new URLSearchParams();
+    if (customerId) {
+      params.append('customerId', customerId);
+    }
+    if (token) {
+      params.append('token', token);
+    }
+    window.open(`${API_URL}/orders/pdf-report?${params.toString()}`, '_blank');
   };
 
   // Dynamically load Razorpay SDK
@@ -363,7 +497,7 @@ const VendorDashboard = () => {
   const isSubActive = subStatus && subStatus.active;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-marine-950 text-slate-100">
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-marine-950 text-slate-100">
       
       {/* MOBILE HEADER BAR */}
       <header className="flex md:hidden items-center justify-between p-4 bg-marine-sidebar border-b border-marine-800 z-20">
@@ -476,6 +610,17 @@ const VendorDashboard = () => {
             >
               <DollarSign size={18} />
               Collect Payments
+            </button>
+            <button
+              onClick={() => { setActiveTab('settings'); setError(''); setSuccess(''); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-sky-600 text-white shadow-lg shadow-sky-950/40'
+                  : 'text-slate-400 hover:bg-marine-card hover:text-white'
+              }`}
+            >
+              <Settings size={18} />
+              Settings
             </button>
           </nav>
         </div>
@@ -590,7 +735,7 @@ const VendorDashboard = () => {
               <div className="glass-panel rounded-2xl p-6 border border-marine-800">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">Outstanding Payments Left</span>
-                  <DollarSign size={18} className="text-amber-500" />
+                  <IndianRupee size={18} className="text-amber-500" />
                 </div>
                 <div className="text-3xl font-extrabold text-white">
                   Rs. {customers.reduce((acc, curr) => acc + curr.balance, 0)}
@@ -681,7 +826,14 @@ const VendorDashboard = () => {
                     {orders.filter(o => o.status === 'pending').map((o) => (
                       <div key={o._id} className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 hover:bg-marine-card/10 transition-colors">
                         <div>
-                          <div className="font-semibold text-white">{o.customerId?.name}</div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-white">{o.customerId?.name}</span>
+                            {o.deliverySlot && (
+                              <span className="text-[10px] font-mono px-2 py-0.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-full" title="Preferred delivery slot">
+                                {o.deliverySlot}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-slate-400 mt-1">
                             Phone: {o.customerId?.phone} | Products:{' '}
                             <span className="text-slate-300 font-medium">
@@ -693,9 +845,15 @@ const VendorDashboard = () => {
                         <div className="flex items-center gap-2 self-end md:self-center">
                           <button
                             onClick={() => {
-                              const del = prompt('Enter number of bottles delivered:', o.products.reduce((a,c) => a + c.quantity, 0));
+                              const totalQty = o.products.reduce((a,c) => a + c.quantity, 0);
+                              const del = prompt('Enter number of bottles delivered:', totalQty);
+                              if (del === null) return;
+                              if (Number(del) < totalQty) {
+                                alert(`Delivered bottles cannot be less than the product quantity (${totalQty}).`);
+                                return;
+                              }
                               const ret = prompt('Enter number of empty bottles returned:', '0');
-                              if (del !== null && ret !== null) {
+                              if (ret !== null) {
                                 handleProcessOrder(o._id, 'delivered', del, ret);
                               }
                             }}
@@ -733,7 +891,17 @@ const VendorDashboard = () => {
                 <p className="text-xs md:text-sm text-slate-400 mt-1">Add or manage water products, packaging types, and rates.</p>
               </div>
               <button
-                onClick={() => setShowProductModal(true)}
+                onClick={() => {
+                  setError('');
+                  setSuccess('');
+                  setEditingProduct(null);
+                  setProdName('');
+                  setProdPrice('');
+                  setProdDesc('');
+                  setProdQty('');
+                  setProdIsActive(true);
+                  setShowProductModal(true);
+                }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-semibold cursor-pointer transition-colors self-start sm:self-center"
               >
                 <Plus size={16} />
@@ -746,16 +914,39 @@ const VendorDashboard = () => {
                 <div key={prod._id} className="glass-panel rounded-2xl overflow-hidden border border-marine-800 hover:border-sky-500/40 transition-all flex flex-col justify-between">
                   <div className="p-5 space-y-3">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-white text-lg">{prod.name}</h3>
+                      <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                        {prod.name}
+                        {prod.quantity && (
+                          <span className="text-xs font-mono px-2 py-0.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-full shrink-0">
+                            {prod.quantity}
+                          </span>
+                        )}
+                      </h3>
                       <span className="font-extrabold text-sky-400 text-lg">Rs. {prod.price}</span>
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">{prod.description || 'No description provided.'}</p>
                   </div>
                   <div className="px-5 py-3.5 bg-marine-card/50 border-t border-marine-850 flex justify-between items-center text-xs text-slate-500">
-                    <span>Availability Status:</span>
-                    <span className={`font-semibold ${prod.isActive ? 'text-emerald-400' : 'text-slate-500'}`}>
-                      {prod.isActive ? 'In Stock' : 'Suspended'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span>Status:</span>
+                      <span className={`font-semibold ${prod.isActive ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {prod.isActive ? 'In Stock' : 'Out of Stock'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingProduct(prod);
+                        setProdName(prod.name);
+                        setProdPrice(prod.price);
+                        setProdDesc(prod.description || '');
+                        setProdQty(prod.quantity || '');
+                        setProdIsActive(prod.isActive);
+                        setShowProductModal(true);
+                      }}
+                      className="px-3 py-1 bg-sky-600/10 hover:bg-sky-600 border border-sky-500/20 hover:border-sky-500 text-sky-400 hover:text-white rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
+                    >
+                      Edit
+                    </button>
                   </div>
                 </div>
               ))}
@@ -777,7 +968,7 @@ const VendorDashboard = () => {
                 <p className="text-xs md:text-sm text-slate-400 mt-1">Manage linked customers, outstanding bottles, balances, and download statements.</p>
               </div>
               <button
-                onClick={() => setShowCustomerModal(true)}
+                onClick={() => { setError(''); setSuccess(''); setShowCustomerModal(true); }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-semibold cursor-pointer transition-colors self-start sm:self-center"
               >
                 <Plus size={16} />
@@ -824,13 +1015,22 @@ const VendorDashboard = () => {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <button
-                            onClick={() => handleDownloadPDF(cust.customerId)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-marine-card hover:bg-marine-card/80 border border-marine-800 text-xs font-semibold rounded cursor-pointer transition-colors"
-                          >
-                            <FileText size={14} className="text-sky-400" />
-                            Statement
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleEditLedgerClick(cust)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-marine-card hover:bg-marine-card/80 border border-marine-800 text-xs font-semibold rounded cursor-pointer transition-colors"
+                            >
+                              <Edit size={14} className="text-amber-400" />
+                              Edit Ledger
+                            </button>
+                            <button
+                              onClick={() => handleDownloadPDF(cust.customerId)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-marine-card hover:bg-marine-card/80 border border-marine-800 text-xs font-semibold rounded cursor-pointer transition-colors"
+                            >
+                              <FileText size={14} className="text-sky-400" />
+                              Statement
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -857,7 +1057,7 @@ const VendorDashboard = () => {
                 <p className="text-xs md:text-sm text-slate-400 mt-1">Log bottle drop-offs and empty returns, review historical orders.</p>
               </div>
               <button
-                onClick={() => setShowOrderModal(true)}
+                onClick={() => { setError(''); setSuccess(''); setShowOrderModal(true); }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-semibold cursor-pointer transition-colors self-start sm:self-center"
               >
                 <Plus size={16} />
@@ -870,7 +1070,7 @@ const VendorDashboard = () => {
                 <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead>
                     <tr className="bg-marine-card border-b border-marine-800 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                      <th className="p-4">Date</th>
+                      <th className="p-4">Date / Slot</th>
                       <th className="p-4">Client</th>
                       <th className="p-4">Products (Qty)</th>
                       <th className="p-4">Bottles Log</th>
@@ -882,7 +1082,12 @@ const VendorDashboard = () => {
                     {orders.map((ord) => (
                       <tr key={ord._id} className="hover:bg-marine-card/30 transition-colors">
                         <td className="p-4 text-slate-400">
-                          {new Date(ord.createdAt).toLocaleDateString()}
+                          <div>{new Date(ord.createdAt).toLocaleDateString()}</div>
+                          {ord.deliverySlot && (
+                            <div className="text-[10px] text-sky-400 font-mono mt-0.5" title="Requested Delivery Slot">
+                              {ord.deliverySlot}
+                            </div>
+                          )}
                         </td>
                         <td className="p-4">
                           <div className="font-semibold text-white">{ord.customerId?.name}</div>
@@ -933,7 +1138,7 @@ const VendorDashboard = () => {
                 <p className="text-xs md:text-sm text-slate-400 mt-1">Record collections and review transaction histories.</p>
               </div>
               <button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={() => { setError(''); setSuccess(''); setShowPaymentModal(true); }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-semibold cursor-pointer transition-colors self-start sm:self-center"
               >
                 <Plus size={16} />
@@ -988,14 +1193,228 @@ const VendorDashboard = () => {
           </section>
         )}
 
+        {/* SETTINGS TAB */}
+        {activeTab === 'settings' && (
+          <section className="space-y-6 animate-tab-transition">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-white">Console Settings</h1>
+              <p className="text-xs md:text-sm text-slate-400 mt-1">Manage profile information and customer payment keys.</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Profile Details Form */}
+              <div className="glass-panel rounded-2xl p-6 border border-marine-800 space-y-4">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-3">
+                  Vendor Profile Details
+                </h2>
+                <form onSubmit={handleUpdateSettings} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Vendor/Business Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Registered Phone</label>
+                      <input
+                        type="tel"
+                        required
+                        value={profilePhone}
+                        onChange={(e) => setProfilePhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Business Address</label>
+                    <textarea
+                      value={profileAddress}
+                      onChange={(e) => setProfileAddress(e.target.value)}
+                      rows="3"
+                      className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Change Password (leave blank to keep current)</label>
+                    <input
+                      type="password"
+                      value={profilePassword}
+                      onChange={(e) => setProfilePassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+
+                  {/* Razorpay section inside settings */}
+                  <div className="border-t border-marine-850 pt-4 mt-6">
+                    <h3 className="text-sm font-bold text-sky-400 uppercase tracking-wider mb-3">Customer Online Payment Setup</h3>
+                    <p className="text-xs text-slate-400 mb-4">
+                      Enter your Razorpay Key ID and Secret to allow customers to pay their outstanding balances online directly to your bank account.
+                    </p>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Razorpay Key ID</label>
+                        <input
+                          type="text"
+                          value={vendorKeyId}
+                          onChange={(e) => setVendorKeyId(e.target.value)}
+                          placeholder="rzp_test_..."
+                          className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Razorpay Key Secret</label>
+                        <input
+                          type="password"
+                          value={vendorKeySecret}
+                          onChange={(e) => setVendorKeySecret(e.target.value)}
+                          placeholder="Key Secret"
+                          className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full mt-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? 'Saving Settings...' : 'Save All Settings'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Right Column: Delivery Slots & Setup Instructions */}
+              <div className="space-y-8">
+                {/* Delivery Slots Configuration */}
+                <div className="glass-panel rounded-2xl p-6 border border-marine-800 space-y-4">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-3">
+                    <Truck size={18} className="text-sky-400" />
+                    Delivery Slots Setup
+                  </h2>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Set up your business's active delivery windows. Your clients will choose from these slots when filing a delivery request.
+                  </p>
+
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {profileSlots.map((slot, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-marine-950/60 border border-marine-850 rounded-xl hover:border-sky-500/20 transition-all"
+                      >
+                        <span className="text-sm font-semibold text-slate-200">{slot}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileSlots(profileSlots.filter((_, i) => i !== index));
+                          }}
+                          className="p-1 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 rounded transition-all cursor-pointer animate-all"
+                          title="Delete slot"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                    {profileSlots.length === 0 && (
+                      <div className="text-center py-6 text-slate-500 text-xs border border-dashed border-marine-800 rounded-xl">
+                        No delivery slots set. Default intervals will apply if left blank.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <input
+                      type="text"
+                      value={newSlotText}
+                      onChange={(e) => setNewSlotText(e.target.value)}
+                      placeholder="e.g. Early Morning (6 AM - 8 AM)"
+                      className="flex-1 bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newSlotText.trim()) return;
+                        if (profileSlots.includes(newSlotText.trim())) {
+                          alert('This delivery slot already exists.');
+                          return;
+                        }
+                        setProfileSlots([...profileSlots, newSlotText.trim()]);
+                        setNewSlotText('');
+                      }}
+                      className="px-4 py-2 bg-sky-600/15 hover:bg-sky-600 border border-sky-500/30 hover:border-sky-500 text-sky-400 hover:text-white rounded-lg text-sm font-bold transition-all cursor-pointer"
+                    >
+                      Add Slot
+                    </button>
+                  </div>
+                  <div className="border-t border-marine-850 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+                    <p className="text-[10px] text-slate-500 italic">
+                      * Saves all console profile and delivery settings.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSettings()}
+                      disabled={loading}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {loading ? 'Saving Slots...' : 'Save Time Slots'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Guide/Info Panel */}
+                <div className="glass-panel rounded-2xl p-6 border border-marine-800 space-y-4 text-xs text-slate-400">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-3">
+                    Setup Instructions
+                  </h2>
+                  <div className="space-y-3 leading-relaxed">
+                    <span className="font-bold text-white block mb-1">Configuring Razorpay for Collections:</span>
+                    <p>1. Log in to your <a href="https://dashboard.razorpay.com" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Razorpay Dashboard</a>.</p>
+                    <p>2. Go to **Settings** &gt; **API Keys** &gt; **Generate Key**.</p>
+                    <p>3. Copy the **Key ID** and **Key Secret** generated and paste them in the fields on the left.</p>
+                    <p>4. Once saved, customers connected to your distributor account will see a "Pay Online" option on their portal when they have a pending balance due.</p>
+                    <p className="p-3 bg-marine-card/50 border border-marine-850 rounded text-slate-400">
+                      <span className="font-bold text-amber-400 block mb-1">Note:</span>
+                      Payments made by customers go directly to your configured Razorpay merchant account. Razorpay settlement cycle will apply.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
       </main>
 
-      {/* MODAL: ADD PRODUCT */}
+      {/* MODAL: ADD / EDIT PRODUCT */}
       {showProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30">
-            <h2 className="text-xl font-bold text-white mb-4">Add Product</h2>
-            <form onSubmit={handleAddProduct} className="space-y-4">
+            <h2 className="text-xl font-bold text-white mb-4">{editingProduct ? 'Edit Product' : 'Add Product'}</h2>
+            {error && (
+              <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleSaveProduct} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Product Name</label>
                 <input
@@ -1007,19 +1426,42 @@ const VendorDashboard = () => {
                   className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Price per unit (Rs)</label>
-                <input
-                  type="number"
-                  required
-                  value={prodPrice}
-                  onChange={(e) => setProdPrice(e.target.value)}
-                  placeholder="e.g. 80"
-                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Price per unit (Rs)</label>
+                  <input
+                    type="number"
+                    required
+                    value={prodPrice}
+                    onChange={(e) => setProdPrice(e.target.value)}
+                    placeholder="e.g. 80"
+                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Quantity (e.g. 20L, 1L)</label>
+                  <input
+                    type="text"
+                    value={prodQty}
+                    onChange={(e) => setProdQty(e.target.value)}
+                    placeholder="e.g. 20L"
+                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Description / Capacity</label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Availability Status</label>
+                <select
+                  value={prodIsActive ? 'true' : 'false'}
+                  onChange={(e) => setProdIsActive(e.target.value === 'true')}
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                >
+                  <option value="true">In Stock</option>
+                  <option value="false">Out of Stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Description / Details</label>
                 <textarea
                   value={prodDesc}
                   onChange={(e) => setProdDesc(e.target.value)}
@@ -1031,7 +1473,17 @@ const VendorDashboard = () => {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowProductModal(false)}
+                  onClick={() => {
+                    setError('');
+                    setSuccess('');
+                    setShowProductModal(false);
+                    setEditingProduct(null);
+                    setProdName('');
+                    setProdPrice('');
+                    setProdDesc('');
+                    setProdQty('');
+                    setProdIsActive(true);
+                  }}
                   className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
                 >
                   Cancel
@@ -1054,7 +1506,11 @@ const VendorDashboard = () => {
           <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30">
             <h2 className="text-xl font-bold text-white mb-2">Link Customer</h2>
             <p className="text-xs text-slate-400 mb-4">Enter a user phone number to connect them to your water supply channel.</p>
-            
+            {error && (
+              <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleAddCustomer} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Mobile Number</label>
@@ -1100,6 +1556,8 @@ const VendorDashboard = () => {
                 <button
                   type="button"
                   onClick={() => {
+                    setError('');
+                    setSuccess('');
                     setShowCustomerModal(false);
                     setShowNewCustFields(false);
                     setCustPhone('');
@@ -1127,6 +1585,11 @@ const VendorDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30">
             <h2 className="text-xl font-bold text-white mb-4">Log Delivery Dispatch</h2>
+            {error && (
+              <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleAddOrder} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Customer</label>
@@ -1204,7 +1667,7 @@ const VendorDashboard = () => {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowOrderModal(false)}
+                  onClick={() => { setError(''); setSuccess(''); setShowOrderModal(false); }}
                   className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
                 >
                   Cancel
@@ -1226,6 +1689,11 @@ const VendorDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30">
             <h2 className="text-xl font-bold text-white mb-4">Record Payment</h2>
+            {error && (
+              <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleAddPayment} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Customer</label>
@@ -1285,7 +1753,7 @@ const VendorDashboard = () => {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={() => { setError(''); setSuccess(''); setShowPaymentModal(false); }}
                   className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
                 >
                   Cancel
@@ -1295,6 +1763,66 @@ const VendorDashboard = () => {
                   className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm rounded-lg cursor-pointer"
                 >
                   Record Payment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT CUSTOMER LEDGER */}
+      {showEditLedgerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30">
+            <h2 className="text-xl font-bold text-white mb-2">Adjust Customer Ledger</h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Manually override the outstanding payment balance and pending bottle count for <strong>{selectedCustForLedger?.name}</strong>.
+            </p>
+            {error && (
+              <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleSaveLedger} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Outstanding Payments (Rs)</label>
+                <input
+                  type="number"
+                  required
+                  value={ledgerBalance}
+                  onChange={(e) => setLedgerBalance(e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Positive indicates customer owes vendor. Negative indicates advance payment.</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Bottles Pending / Outstanding</label>
+                <input
+                  type="number"
+                  required
+                  value={ledgerBottles}
+                  onChange={(e) => setLedgerBottles(e.target.value)}
+                  placeholder="e.g. 5"
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Number of reusable jars/bottles currently kept by the customer.</span>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setSuccess(''); setShowEditLedgerModal(false); }}
+                  className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm rounded-lg cursor-pointer"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
