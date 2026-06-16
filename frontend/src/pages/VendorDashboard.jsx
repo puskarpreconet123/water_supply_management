@@ -69,6 +69,14 @@ const VendorDashboard = () => {
   const [ledgerBalance, setLedgerBalance] = useState('');
   const [ledgerBottles, setLedgerBottles] = useState('');
 
+  // Form states - Process Request
+  const [showProcessReqModal, setShowProcessReqModal] = useState(false);
+  const [processingOrder, setProcessingOrder] = useState(null);
+  const [reqBottlesDelivered, setReqBottlesDelivered] = useState('');
+  const [reqBottlesReturned, setReqBottlesReturned] = useState('');
+  const [reqTotalQty, setReqTotalQty] = useState(0);
+  const [reqError, setReqError] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -386,6 +394,30 @@ const VendorDashboard = () => {
     } catch (err) {
       setError('Connection failure');
     }
+  };
+
+  const handleOpenProcessReqModal = (order) => {
+    const totalQty = order.products.reduce((acc, curr) => acc + curr.quantity, 0);
+    setProcessingOrder(order);
+    setReqTotalQty(totalQty);
+    setReqBottlesDelivered(totalQty);
+    setReqBottlesReturned(0);
+    setReqError('');
+    setShowProcessReqModal(true);
+  };
+
+  const handleConfirmProcessReq = (e) => {
+    e.preventDefault();
+    if (!processingOrder) return;
+    const del = Number(reqBottlesDelivered);
+    const ret = Number(reqBottlesReturned);
+    if (del < reqTotalQty) {
+      setReqError(`Delivered bottles cannot be less than the product quantity (${reqTotalQty}).`);
+      return;
+    }
+    handleProcessOrder(processingOrder._id, 'delivered', del, ret);
+    setShowProcessReqModal(false);
+    setProcessingOrder(null);
   };
 
   const handleDownloadPDF = (customerId = '') => {
@@ -844,19 +876,7 @@ const VendorDashboard = () => {
 
                         <div className="flex items-center gap-2 self-end md:self-center">
                           <button
-                            onClick={() => {
-                              const totalQty = o.products.reduce((a,c) => a + c.quantity, 0);
-                              const del = prompt('Enter number of bottles delivered:', totalQty);
-                              if (del === null) return;
-                              if (Number(del) < totalQty) {
-                                alert(`Delivered bottles cannot be less than the product quantity (${totalQty}).`);
-                                return;
-                              }
-                              const ret = prompt('Enter number of empty bottles returned:', '0');
-                              if (ret !== null) {
-                                handleProcessOrder(o._id, 'delivered', del, ret);
-                              }
-                            }}
+                            onClick={() => handleOpenProcessReqModal(o)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/20 text-white rounded text-xs font-semibold cursor-pointer transition-colors"
                           >
                             Mark Delivered
@@ -1823,6 +1843,82 @@ const VendorDashboard = () => {
                   className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm rounded-lg cursor-pointer"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COMPLETE DELIVERY REQUEST */}
+      {showProcessReqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30 animate-scale-up">
+            <h2 className="text-xl font-bold text-white mb-2">Complete Delivery Request</h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Review and record the delivery details for <strong>{processingOrder?.customerId?.name}</strong>.
+            </p>
+            {reqError && (
+              <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {reqError}
+              </div>
+            )}
+            <form onSubmit={handleConfirmProcessReq} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">
+                  Number of bottles delivered
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  value={reqBottlesDelivered}
+                  onChange={(e) => {
+                    setReqBottlesDelivered(e.target.value);
+                    if (Number(e.target.value) < reqTotalQty) {
+                      setReqError(`Delivered bottles cannot be less than the product quantity (${reqTotalQty}).`);
+                    } else {
+                      setReqError('');
+                    }
+                  }}
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Product quantity requested: {reqTotalQty} bottle{reqTotalQty !== 1 ? 's' : ''}.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">
+                  Number of empty bottles returned
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  value={reqBottlesReturned}
+                  onChange={(e) => setReqBottlesReturned(e.target.value)}
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReqError('');
+                    setShowProcessReqModal(false);
+                    setProcessingOrder(null);
+                  }}
+                  className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm rounded-lg cursor-pointer"
+                >
+                  Confirm Delivery
                 </button>
               </div>
             </form>
