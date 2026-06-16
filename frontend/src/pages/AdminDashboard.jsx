@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Plus, List, Users, CreditCard, LogOut, RefreshCw, Layers, Menu, X, Trash2 } from 'lucide-react';
+import { Shield, Plus, List, Users, CreditCard, LogOut, RefreshCw, Layers, Menu, X, Trash2, Info, IndianRupee } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { logout, authFetch } = useAuth();
-  const [activeTab, setActiveTab] = useState('vendors'); // 'vendors' or 'plans'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'vendors', 'plans', 'paymentSettings'
   const [vendors, setVendors] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [stats, setStats] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Razorpay Gateway Config states
@@ -44,6 +45,9 @@ const AdminDashboard = () => {
         setRzpKeyId(configRes.data.keyId || '');
         setHasSavedSecret(configRes.data.hasSecret || false);
       }
+
+      const statsRes = await authFetch('/admin/stats');
+      if (statsRes.success) setStats(statsRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -229,6 +233,17 @@ const AdminDashboard = () => {
           {/* Navigation Items */}
           <nav className="space-y-2">
             <button
+              onClick={() => { setActiveTab('overview'); setError(''); setSuccess(''); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'overview'
+                  ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-950/40'
+                  : 'text-slate-400 hover:bg-marine-card hover:text-white'
+              }`}
+            >
+              <Info size={18} />
+              Overview
+            </button>
+            <button
               onClick={() => { setActiveTab('vendors'); setError(''); setSuccess(''); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
                 activeTab === 'vendors'
@@ -296,6 +311,116 @@ const AdminDashboard = () => {
           <div className="p-4 mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
             {success}
           </div>
+        )}
+
+        {/* TAB 0: OVERVIEW PANEL */}
+        {activeTab === 'overview' && (
+          <section className="space-y-6 animate-tab-transition">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-white">System Overview</h1>
+              <p className="text-xs md:text-sm text-slate-400 mt-1">Global statistics, subscription counts, and active revenues.</p>
+            </div>
+
+            {/* Quick Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Card 1: Registered Vendors */}
+              <div className="glass-panel rounded-2xl p-6 border border-marine-800">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">Registered Vendors</span>
+                  <Users size={18} className="text-cyan-400" />
+                </div>
+                <div className="text-3xl font-extrabold text-white">
+                  {stats?.vendorsCount || 0}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2">Total number of registered distribution businesses.</p>
+              </div>
+
+              {/* Card 2: Active Subscriptions */}
+              <div className="glass-panel rounded-2xl p-6 border border-marine-800">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">Active Subscriptions</span>
+                  <Layers size={18} className="text-emerald-400" />
+                </div>
+                <div className="text-3xl font-extrabold text-white">
+                  {stats?.activeSubsCount || 0}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2">Active paid tiers currently unlock-statused for vendors.</p>
+              </div>
+
+              {/* Card 3: Monthly Recurring Revenue */}
+              <div className="glass-panel rounded-2xl p-6 border border-marine-800">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">Active Revenue (Est.)</span>
+                  <IndianRupee size={18} className="text-amber-500" />
+                </div>
+                <div className="text-3xl font-extrabold text-white">
+                  Rs. {stats?.totalRevenue || 0}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2">Cumulative value of all currently active sub packages.</p>
+              </div>
+
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Card 4: Total Customers Connected */}
+              <div className="glass-panel rounded-2xl p-6 border border-marine-800 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono block mb-1">Total Client Headcount</span>
+                  <span className="text-3xl font-extrabold text-white">
+                    {stats?.customersCount || 0} Customers
+                  </span>
+                  <p className="text-[10px] text-slate-500 mt-2">Connected consumer accounts across all vendors.</p>
+                </div>
+                <div className="p-4 bg-cyan-600/10 border border-cyan-500/20 text-cyan-400 rounded-2xl">
+                  <Shield size={32} />
+                </div>
+              </div>
+
+              {/* Card 5: Plan Configurations */}
+              <div className="glass-panel rounded-2xl p-6 border border-marine-800 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono block mb-1">Plan Configurations</span>
+                  <span className="text-3xl font-extrabold text-white">
+                    {stats?.plansCount || 0} Tiers
+                  </span>
+                  <p className="text-[10px] text-slate-500 mt-2">Subscription packages configured by the admin panel.</p>
+                </div>
+                <div className="p-4 bg-cyan-600/10 border border-cyan-500/20 text-cyan-400 rounded-2xl">
+                  <Layers size={32} />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Action Guides */}
+            <div className="glass-panel rounded-2xl p-6 border border-marine-800">
+              <h3 className="font-bold text-white mb-3 text-base">Quick Administration Actions</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button
+                  onClick={() => setActiveTab('vendors')}
+                  className="p-4 bg-marine-card/50 hover:bg-cyan-650/10 border border-marine-800 hover:border-cyan-500/30 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <span className="font-bold text-white block mb-1 group-hover:text-cyan-400 font-sans">Manage Vendors →</span>
+                  <span className="text-xs text-slate-400">View vendor phone numbers, expiry dates, and assign custom packages.</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('plans')}
+                  className="p-4 bg-marine-card/50 hover:bg-cyan-650/10 border border-marine-800 hover:border-cyan-500/30 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <span className="font-bold text-white block mb-1 group-hover:text-cyan-400 font-sans">Subscription Plans →</span>
+                  <span className="text-xs text-slate-400">Configure plan durations, set customer limits, and adjust prices.</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('paymentSettings')}
+                  className="p-4 bg-marine-card/50 hover:bg-cyan-650/10 border border-marine-800 hover:border-cyan-500/30 rounded-xl text-left transition-all cursor-pointer group"
+                >
+                  <span className="font-bold text-white block mb-1 group-hover:text-cyan-400 font-sans">Gateway Settings →</span>
+                  <span className="text-xs text-slate-400">Configure global Razorpay API credentials to automate paid checkout.</span>
+                </button>
+              </div>
+            </div>
+
+          </section>
         )}
 
         {/* TAB 1: VENDORS MANAGEMENT */}

@@ -163,3 +163,38 @@ exports.deletePlan = async (req, res) => {
   }
 };
 
+// @desc    Get system-wide stats for Admin Overview
+// @route   GET /api/v1/admin/stats
+// @access  Private (Admin only)
+exports.getAdminStats = async (req, res) => {
+  try {
+    const vendorsCount = await User.countDocuments({ role: 'vendor' });
+    const customersCount = await User.countDocuments({ role: 'customer' });
+    const plansCount = await SubscriptionPlan.countDocuments();
+    
+    const activeSubscriptions = await VendorSubscription.find({
+      isActive: true,
+      endDate: { $gte: new Date() }
+    }).populate('planId');
+
+    const activeSubsCount = activeSubscriptions.length;
+    
+    const totalRevenue = activeSubscriptions.reduce((acc, curr) => {
+      return acc + (curr.planId?.price || 0);
+    }, 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        vendorsCount,
+        customersCount,
+        plansCount,
+        activeSubsCount,
+        totalRevenue
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

@@ -5,13 +5,15 @@ const {
   getPlans,
   getVendors,
   assignSubscription,
-  deletePlan
+  deletePlan,
+  getAdminStats
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.use(protect);
 router.use(authorize('admin'));
 
+router.get('/stats', getAdminStats);
 router.post('/plans', createPlan);
 router.get('/plans', getPlans);
 router.delete('/plans/:id', deletePlan);
