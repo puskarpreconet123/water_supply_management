@@ -44,7 +44,7 @@ exports.getSubscription = async (req, res) => {
 // @access  Private (Vendor only)
 exports.addProduct = async (req, res) => {
   try {
-    const { name, price, description, imageUrl, quantity } = req.body;
+    const { name, price, description, imageUrl, quantity, stock } = req.body;
 
     if (!name || price === undefined) {
       return res.status(400).json({ success: false, message: 'Please provide name and price' });
@@ -62,6 +62,7 @@ exports.addProduct = async (req, res) => {
       price,
       description,
       quantity: quantity || '',
+      stock: stock !== undefined ? Number(stock) : 0,
       imageUrl: imageUrl || 'https://images.unsplash.com/photo-1548839130-3fd96cd5bd4d?q=80&w=256' // standard nice water bottle image
     });
 
@@ -93,7 +94,7 @@ exports.getProducts = async (req, res) => {
 // @access  Private (Vendor only)
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, price, description, imageUrl, isActive, quantity } = req.body;
+    const { name, price, description, imageUrl, isActive, quantity, stock } = req.body;
     let product = await Product.findById(req.params.id);
 
     if (!product) {
@@ -105,9 +106,14 @@ exports.updateProduct = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
+    const updateData = { name, price, description, imageUrl, isActive, quantity };
+    if (stock !== undefined) {
+      updateData.stock = Number(stock);
+    }
+
     product = await Product.findByIdAndUpdate(
       req.params.id,
-      { name, price, description, imageUrl, isActive, quantity },
+      updateData,
       { new: true, runValidators: true }
     );
 

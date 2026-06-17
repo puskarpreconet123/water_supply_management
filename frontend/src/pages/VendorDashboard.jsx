@@ -34,6 +34,7 @@ const VendorDashboard = () => {
   const [prodPrice, setProdPrice] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodQty, setProdQty] = useState('');
+  const [prodStock, setProdStock] = useState('');
   const [prodIsActive, setProdIsActive] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
 
@@ -195,6 +196,7 @@ const VendorDashboard = () => {
         price: Number(prodPrice),
         description: prodDesc,
         quantity: prodQty,
+        stock: prodStock !== '' ? Number(prodStock) : 0,
         isActive: prodIsActive
       };
 
@@ -217,6 +219,7 @@ const VendorDashboard = () => {
         setProdPrice('');
         setProdDesc('');
         setProdQty('');
+        setProdStock('');
         setProdIsActive(true);
         setEditingProduct(null);
         setShowProductModal(false);
@@ -276,8 +279,8 @@ const VendorDashboard = () => {
     if (!selectedCustId || !selectedProdId || !orderQty) {
       return setError('Please complete all delivery fields');
     }
-    if (Number(bottlesDelivered) < Number(orderQty)) {
-      return setError('Delivered bottles cannot be less than the product quantity');
+    if (Number(bottlesDelivered) > Number(orderQty)) {
+      return setError('Delivered bottles cannot exceed the product quantity');
     }
 
     try {
@@ -396,8 +399,8 @@ const VendorDashboard = () => {
     if (!processingOrder) return;
     const del = Number(reqBottlesDelivered);
     const ret = Number(reqBottlesReturned);
-    if (del < reqTotalQty) {
-      setReqError(`Delivered bottles cannot be less than the product quantity (${reqTotalQty}).`);
+    if (del > reqTotalQty) {
+      setReqError(`Delivered bottles cannot exceed the requested quantity (${reqTotalQty}).`);
       return;
     }
     handleProcessOrder(processingOrder._id, 'delivered', del, ret, reqPaymentMethod, reqPaymentAmount);
@@ -746,6 +749,18 @@ const VendorDashboard = () => {
             >
               <Package size={18} />
               Products List
+            </button>
+            <button
+              disabled={!isSubActive}
+              onClick={() => { setActiveTab('inventory'); setError(''); setSuccess(''); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                activeTab === 'inventory'
+                  ? 'bg-sky-600 text-white shadow-lg shadow-sky-950/40'
+                  : 'text-slate-400 hover:bg-marine-card hover:text-white'
+              }`}
+            >
+              <Package size={18} />
+              Inventory
             </button>
             <button
               disabled={!isSubActive}
@@ -1484,6 +1499,7 @@ const VendorDashboard = () => {
                         setProdPrice(prod.price);
                         setProdDesc(prod.description || '');
                         setProdQty(prod.quantity || '');
+                        setProdStock(prod.stock || '');
                         setProdIsActive(prod.isActive);
                         setShowProductModal(true);
                       }}
@@ -1499,6 +1515,76 @@ const VendorDashboard = () => {
                   No products added yet. Click 'Add New Product' to start.
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* INVENTORY TAB */}
+        {activeTab === 'inventory' && (
+          <section className="space-y-6 animate-tab-transition">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-white">Inventory Management</h1>
+                <p className="text-xs md:text-sm text-slate-400 mt-1">Manage and update stock availability for your products.</p>
+              </div>
+            </div>
+
+            <div className="glass-panel rounded-2xl border border-marine-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[650px]">
+                  <thead>
+                    <tr className="bg-marine-card border-b border-marine-800 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                      <th className="p-4">Product</th>
+                      <th className="p-4">Size/Qty</th>
+                      <th className="p-4">Price</th>
+                      <th className="p-4">Available Stock</th>
+                      <th className="p-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-marine-800/40 text-sm">
+                    {products.map((prod) => (
+                      <tr key={prod._id} className="hover:bg-marine-card/30 transition-colors">
+                        <td className="p-4">
+                          <div className="font-semibold text-white">{prod.name}</div>
+                        </td>
+                        <td className="p-4 text-slate-300">
+                          {prod.quantity || 'N/A'}
+                        </td>
+                        <td className="p-4 text-slate-300">
+                          Rs. {prod.price}
+                        </td>
+                        <td className="p-4 font-bold text-white">
+                          {prod.stock || 0} Units
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => {
+                              setEditingProduct(prod);
+                              setProdName(prod.name);
+                              setProdPrice(prod.price);
+                              setProdDesc(prod.description || '');
+                              setProdQty(prod.quantity || '');
+                              setProdStock(prod.stock || '');
+                              setProdIsActive(prod.isActive);
+                              setShowProductModal(true);
+                            }}
+                            className="px-3 py-1 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 hover:border-emerald-500 text-emerald-400 hover:text-white rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
+                          >
+                            Update Stock
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {products.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="p-6 text-center text-slate-500 text-sm">
+                          No products found. Add products from the Products List tab first.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         )}
@@ -2294,16 +2380,29 @@ const VendorDashboard = () => {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Availability Status</label>
-                <select
-                  value={prodIsActive ? 'true' : 'false'}
-                  onChange={(e) => setProdIsActive(e.target.value === 'true')}
-                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                >
-                  <option value="true">In Stock</option>
-                  <option value="false">Out of Stock</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Availability Status</label>
+                  <select
+                    value={prodIsActive ? 'true' : 'false'}
+                    onChange={(e) => setProdIsActive(e.target.value === 'true')}
+                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  >
+                    <option value="true">In Stock</option>
+                    <option value="false">Out of Stock</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Current Stock</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={prodStock}
+                    onChange={(e) => setProdStock(e.target.value)}
+                    placeholder="e.g. 100"
+                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Description / Details</label>
@@ -2327,6 +2426,7 @@ const VendorDashboard = () => {
                     setProdPrice('');
                     setProdDesc('');
                     setProdQty('');
+                    setProdStock('');
                     setProdIsActive(true);
                   }}
                   className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"

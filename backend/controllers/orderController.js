@@ -97,8 +97,26 @@ exports.createOrder = async (req, res) => {
     const finalDelivered = isVendor ? (bottlesDelivered || 0) : 0;
     const finalReturned = isVendor ? (bottlesReturned || 0) : 0;
 
-    if (orderStatus === 'delivered' && finalDelivered < totalQty) {
-      return res.status(400).json({ success: false, message: 'Delivered bottles cannot be less than the product quantity' });
+    if (orderStatus === 'delivered') {
+      if (finalDelivered < totalQty) {
+        if (orderProducts.length === 1) {
+          orderProducts[0].quantity = finalDelivered;
+          totalAmount = finalDelivered * orderProducts[0].price;
+          totalQty = finalDelivered;
+        } else {
+          return res.status(400).json({ success: false, message: 'Partial delivery is only supported for single-product orders' });
+        }
+      } else if (finalDelivered > totalQty) {
+        return res.status(400).json({ success: false, message: 'Delivered bottles cannot exceed requested quantity' });
+      }
+
+      // Check stock
+      for (const item of orderProducts) {
+        const productInfo = await Product.findById(item.productId);
+        if (productInfo && productInfo.stock < item.quantity) {
+          return res.status(400).json({ success: false, message: `Insufficient stock for ${item.name}. Available: ${productInfo.stock}` });
+        }
+      }
     }
 
     const order = await Order.create({
@@ -119,6 +137,13 @@ exports.createOrder = async (req, res) => {
       relation.balance += totalAmount;
       relation.bottlesOutstanding += (finalDelivered - finalReturned);
       await relation.save();
+
+      // Deduct stock for each product
+      for (const item of orderProducts) {
+        await Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: -item.quantity }
+        });
+      }
     }
 
     res.status(201).json({ success: true, data: order });
@@ -152,10 +177,28 @@ exports.updateOrderStatus = async (req, res) => {
     
     if (order.status === 'delivered') {
       const finalDelivered = bottlesDelivered !== undefined ? Number(bottlesDelivered) : 0;
-      const totalQty = order.products.reduce((acc, curr) => acc + curr.quantity, 0);
+      let totalQty = order.products.reduce((acc, curr) => acc + curr.quantity, 0);
+
       if (finalDelivered < totalQty) {
-        return res.status(400).json({ success: false, message: 'Delivered bottles cannot be less than the product quantity' });
+        if (order.products.length === 1) {
+          order.products[0].quantity = finalDelivered;
+          order.totalAmount = finalDelivered * order.products[0].price;
+          totalQty = finalDelivered;
+        } else {
+          return res.status(400).json({ success: false, message: 'Partial delivery is only supported for single-product orders' });
+        }
+      } else if (finalDelivered > totalQty) {
+        return res.status(400).json({ success: false, message: 'Delivered bottles cannot exceed requested quantity' });
       }
+
+      // Check stock
+      for (const item of order.products) {
+        const productInfo = await Product.findById(item.productId);
+        if (productInfo && productInfo.stock < item.quantity) {
+          return res.status(400).json({ success: false, message: `Insufficient stock for ${item.name}. Available: ${productInfo.stock}` });
+        }
+      }
+
       order.bottlesDelivered = finalDelivered;
       order.bottlesReturned = bottlesReturned !== undefined ? Number(bottlesReturned) : 0;
       order.deliveryDate = new Date();
@@ -173,6 +216,13 @@ exports.updateOrderStatus = async (req, res) => {
         relation.balance += order.totalAmount;
         relation.bottlesOutstanding += (order.bottlesDelivered - order.bottlesReturned);
         await relation.save();
+
+        // Deduct stock for each product
+        for (const item of order.products) {
+          await Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: -item.quantity }
+          });
+        }
 
         const { paymentMethod, paymentAmount } = req.body;
         if (paymentMethod === 'cash') {
