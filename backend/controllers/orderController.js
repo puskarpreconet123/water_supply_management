@@ -97,6 +97,10 @@ exports.createOrder = async (req, res) => {
     const finalDelivered = isVendor ? (bottlesDelivered || 0) : 0;
     const finalReturned = isVendor ? (bottlesReturned || 0) : 0;
 
+    if (totalQty === 0 && finalReturned === 0) {
+      return res.status(400).json({ success: false, message: 'Either delivery quantity or return quantity must be greater than 0' });
+    }
+
     if (orderStatus === 'delivered') {
       if (finalDelivered < totalQty) {
         if (orderProducts.length === 1) {

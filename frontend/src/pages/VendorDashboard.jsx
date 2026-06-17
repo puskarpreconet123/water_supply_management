@@ -18,7 +18,7 @@ const VendorDashboard = () => {
   const [customers, setCustomers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [analyticsTimeframe, setAnalyticsTimeframe] = useState('month'); // today, yesterday, month
+  const [analyticsTimeframe, setAnalyticsTimeframe] = useState('today'); // today, yesterday, month
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [hoveredBar, setHoveredBar] = useState(null);
 
@@ -37,6 +37,7 @@ const VendorDashboard = () => {
   const [prodStock, setProdStock] = useState('');
   const [prodIsActive, setProdIsActive] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [isStockUpdateOnly, setIsStockUpdateOnly] = useState(false);
 
   // Form states - Customer
   const [custPhone, setCustPhone] = useState('');
@@ -232,6 +233,24 @@ const VendorDashboard = () => {
     }
   };
 
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    setError('');
+    try {
+      const res = await authFetch(`/vendor/products/${productId}`, {
+        method: 'DELETE'
+      });
+      if (res.success) {
+        setSuccess('Product successfully deleted!');
+        fetchData();
+      } else {
+        setError(res.message || 'Failed to delete product');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    }
+  };
+
   // Handle link/add customer
   const handleAddCustomer = async (e) => {
     e.preventDefault();
@@ -276,8 +295,11 @@ const VendorDashboard = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!selectedCustId || !selectedProdId || !orderQty) {
+    if (!selectedCustId || !selectedProdId || orderQty === '') {
       return setError('Please complete all delivery fields');
+    }
+    if (Number(orderQty) === 0 && Number(bottlesReturned) === 0) {
+      return setError('Either delivery quantity or return quantity must be greater than 0');
     }
     if (Number(bottlesDelivered) > Number(orderQty)) {
       return setError('Delivered bottles cannot exceed the product quantity');
@@ -345,10 +367,7 @@ const VendorDashboard = () => {
     }
   };
 
-  // Handle order status process
   const handleProcessOrder = async (orderId, action, delQty, retQty, paymentMethod, paymentAmount) => {
-    setError('');
-    setSuccess('');
     try {
       const res = await authFetch(`/orders/${orderId}/status`, {
         method: 'PUT',
@@ -364,11 +383,12 @@ const VendorDashboard = () => {
       if (res.success) {
         setSuccess(`Order successfully marked as ${action}!`);
         fetchData();
+        return { success: true };
       } else {
-        setError(res.message || 'Failed to process order');
+        return { success: false, message: res.message || 'Failed to process order' };
       }
     } catch (err) {
-      setError('Connection failure');
+      return { success: false, message: 'Connection failure' };
     }
   };
 
@@ -394,7 +414,7 @@ const VendorDashboard = () => {
     setShowProcessReqModal(true);
   };
 
-  const handleConfirmProcessReq = (e) => {
+  const handleConfirmProcessReq = async (e) => {
     e.preventDefault();
     if (!processingOrder) return;
     const del = Number(reqBottlesDelivered);
@@ -403,9 +423,13 @@ const VendorDashboard = () => {
       setReqError(`Delivered bottles cannot exceed the requested quantity (${reqTotalQty}).`);
       return;
     }
-    handleProcessOrder(processingOrder._id, 'delivered', del, ret, reqPaymentMethod, reqPaymentAmount);
-    setShowProcessReqModal(false);
-    setProcessingOrder(null);
+    const result = await handleProcessOrder(processingOrder._id, 'delivered', del, ret, reqPaymentMethod, reqPaymentAmount);
+    if (result.success) {
+      setShowProcessReqModal(false);
+      setProcessingOrder(null);
+    } else {
+      setReqError(result.message);
+    }
   };
 
   const handleDownloadPDF = (customerId = '') => {
@@ -946,8 +970,8 @@ const VendorDashboard = () => {
                 </div>
               </div>
 
-              {/* 3 Analytical Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 4 Analytical Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 
                 {/* Water Supplied */}
                 <div className="bg-marine-card/30 border border-marine-800/40 rounded-xl p-4 flex flex-col justify-between">
@@ -972,11 +996,21 @@ const VendorDashboard = () => {
                 {/* Payments Collected */}
                 <div className="bg-marine-card/30 border border-marine-800/40 rounded-xl p-4 flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Payments Collected</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Collected</span>
                     <IndianRupee size={14} className="text-emerald-400" />
                   </div>
                   <div className="text-xl font-extrabold text-emerald-450">Rs. {paymentsCollected}</div>
                   <p className="text-[9px] text-slate-500 mt-1">Total payments received</p>
+                </div>
+
+                {/* Total Due */}
+                <div className="bg-marine-card/30 border border-marine-800/40 rounded-xl p-4 flex flex-col justify-between">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Total Due</span>
+                    <IndianRupee size={14} className="text-amber-500" />
+                  </div>
+                  <div className="text-xl font-extrabold ">Rs. {customers.reduce((acc, curr) => acc + curr.balance, 0)}</div>
+                  <p className="text-[9px] text-slate-500 mt-1">Pending from customers</p>
                 </div>
               </div>
 
@@ -1459,6 +1493,7 @@ const VendorDashboard = () => {
                   setProdDesc('');
                   setProdQty('');
                   setProdIsActive(true);
+                  setIsStockUpdateOnly(false);
                   setShowProductModal(true);
                 }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-semibold cursor-pointer transition-colors self-start sm:self-center"
@@ -1492,21 +1527,30 @@ const VendorDashboard = () => {
                         {prod.isActive ? 'In Stock' : 'Out of Stock'}
                       </span>
                     </div>
-                    <button
-                      onClick={() => {
-                        setEditingProduct(prod);
-                        setProdName(prod.name);
-                        setProdPrice(prod.price);
-                        setProdDesc(prod.description || '');
-                        setProdQty(prod.quantity || '');
-                        setProdStock(prod.stock || '');
-                        setProdIsActive(prod.isActive);
-                        setShowProductModal(true);
-                      }}
-                      className="px-3 py-1 bg-sky-600/10 hover:bg-sky-600 border border-sky-500/20 hover:border-sky-500 text-sky-400 hover:text-white rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDeleteProduct(prod._id)}
+                        className="px-3 py-1 bg-rose-600/10 hover:bg-rose-600 border border-rose-500/20 hover:border-rose-500 text-rose-400 hover:text-white rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingProduct(prod);
+                          setProdName(prod.name);
+                          setProdPrice(prod.price);
+                          setProdDesc(prod.description || '');
+                          setProdQty(prod.quantity || '');
+                          setProdStock(prod.stock || '');
+                          setProdIsActive(prod.isActive);
+                          setIsStockUpdateOnly(false);
+                          setShowProductModal(true);
+                        }}
+                        className="px-3 py-1 bg-sky-600/10 hover:bg-sky-600 border border-sky-500/20 hover:border-sky-500 text-sky-400 hover:text-white rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
+                      >
+                        Edit
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1566,6 +1610,7 @@ const VendorDashboard = () => {
                               setProdQty(prod.quantity || '');
                               setProdStock(prod.stock || '');
                               setProdIsActive(prod.isActive);
+                              setIsStockUpdateOnly(true);
                               setShowProductModal(true);
                             }}
                             className="px-3 py-1 bg-emerald-600/10 hover:bg-emerald-600 border border-emerald-500/20 hover:border-emerald-500 text-emerald-400 hover:text-white rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
@@ -2339,48 +2384,54 @@ const VendorDashboard = () => {
       {showProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-sky-500/30">
-            <h2 className="text-xl font-bold text-white mb-4">{editingProduct ? 'Edit Product' : 'Add Product'}</h2>
+            <h2 className="text-xl font-bold text-white mb-4">
+              {isStockUpdateOnly ? `Update Stock: ${prodName}` : (editingProduct ? 'Edit Product' : 'Add Product')}
+            </h2>
             {error && (
               <div className="p-3 mb-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
                 {error}
               </div>
             )}
             <form onSubmit={handleSaveProduct} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Product Name</label>
-                <input
-                  type="text"
-                  required
-                  value={prodName}
-                  onChange={(e) => setProdName(e.target.value)}
-                  placeholder="e.g. 20 Litre Mineral Jar"
-                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Price per unit (Rs)</label>
-                  <input
-                    type="number"
-                    required
-                    value={prodPrice}
-                    onChange={(e) => setProdPrice(e.target.value)}
-                    placeholder="e.g. 80"
-                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Quantity (e.g. 20L, 1L)</label>
-                  <input
-                    type="text"
-                    value={prodQty}
-                    onChange={(e) => setProdQty(e.target.value)}
-                    placeholder="e.g. 20L"
-                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              {!isStockUpdateOnly && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Product Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={prodName}
+                      onChange={(e) => setProdName(e.target.value)}
+                      placeholder="e.g. 20 Litre Mineral Jar"
+                      className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Price per unit (Rs)</label>
+                      <input
+                        type="number"
+                        required
+                        value={prodPrice}
+                        onChange={(e) => setProdPrice(e.target.value)}
+                        placeholder="e.g. 80"
+                        className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Quantity (e.g. 20L, 1L)</label>
+                      <input
+                        type="text"
+                        value={prodQty}
+                        onChange={(e) => setProdQty(e.target.value)}
+                        placeholder="e.g. 20L"
+                        className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              {!isStockUpdateOnly && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Availability Status</label>
                   <select
@@ -2392,6 +2443,8 @@ const VendorDashboard = () => {
                     <option value="false">Out of Stock</option>
                   </select>
                 </div>
+              )}
+              {isStockUpdateOnly && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Current Stock</label>
                   <input
@@ -2403,17 +2456,19 @@ const VendorDashboard = () => {
                     className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Description / Details</label>
-                <textarea
-                  value={prodDesc}
-                  onChange={(e) => setProdDesc(e.target.value)}
-                  placeholder="Details about water source, container, etc."
-                  rows="3"
-                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
-                />
-              </div>
+              )}
+              {!isStockUpdateOnly && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Description / Details</label>
+                  <textarea
+                    value={prodDesc}
+                    onChange={(e) => setProdDesc(e.target.value)}
+                    placeholder="Details about water source, container, etc."
+                    rows="3"
+                    className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
@@ -2428,6 +2483,7 @@ const VendorDashboard = () => {
                     setProdQty('');
                     setProdStock('');
                     setProdIsActive(true);
+                    setIsStockUpdateOnly(false);
                   }}
                   className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
                 >
@@ -2574,7 +2630,7 @@ const VendorDashboard = () => {
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Quantity</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     required
                     value={orderQty}
                     onChange={(e) => {

@@ -9,7 +9,8 @@ const {
   getCustomers,
   updateProfile,
   updateCustomerLedger,
-  getVendorPlans
+  getVendorPlans,
+  deleteProduct
 } = require('../controllers/vendorController');
 const { protect, authorize, checkSubscription } = require('../middleware/auth');
 
@@ -20,6 +21,7 @@ router.get('/subscription', getSubscription);
 router.post('/products', checkSubscription, addProduct);
 router.get('/products', getProducts);
 router.put('/products/:id', checkSubscription, updateProduct);
+router.delete('/products/:id', checkSubscription, deleteProduct);
 router.post('/customers', checkSubscription, addCustomer);
 router.get('/customers', getCustomers);
 router.put('/customers/:customerId', checkSubscription, updateCustomerLedger);

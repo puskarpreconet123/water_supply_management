@@ -82,7 +82,12 @@ exports.getProducts = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please specify vendor ID' });
     }
 
-    const products = await Product.find({ vendorId, isActive: true });
+    const filter = { vendorId };
+    if (req.user.role !== 'vendor') {
+      filter.isActive = true;
+    }
+
+    const products = await Product.find(filter);
     res.status(200).json({ success: true, count: products.length, data: products });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -118,6 +123,30 @@ exports.updateProduct = async (req, res) => {
     );
 
     res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete a Product
+// @route   DELETE /api/v1/vendor/products/:id
+// @access  Private (Vendor only)
+exports.deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    // Make sure vendor owns the product
+    if (product.vendorId.toString() !== req.user._id.toString()) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    await Product.deleteOne({ _id: req.params.id });
+
+    res.status(200).json({ success: true, message: 'Product deleted' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
