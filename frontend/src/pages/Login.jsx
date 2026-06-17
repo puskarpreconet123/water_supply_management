@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Droplets, Phone, Key, User, MapPin, ArrowRight } from 'lucide-react';
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { auth } from "../config/firebase";
 
 const Login = () => {
-  const { sendOtp, verifyOtp, registerCustomer } = useAuth();
+  const { verifyFirebaseToken, registerCustomer } = useAuth();
   const navigate = useNavigate();
 
   // Form states
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [tempOtp, setTempOtp] = useState(''); // display OTP to user in dev mode
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [idToken, setIdToken] = useState('');
   
   // New Customer Profile popup states
   const [showProfilePopup, setShowProfilePopup] = useState(false);
@@ -22,6 +25,27 @@ const Login = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Cleanup recaptcha if component unmounts
+    return () => {
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+    };
+  }, []);
+
+  const setupRecaptcha = () => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: (response) => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+    }
+  };
+
   // Handle Customer OTP request
   const handleSendOtp = async (e) => {
     e.preventDefault();
@@ -30,19 +54,32 @@ const Login = () => {
     setError('');
     setLoading(true);
     
-    try {
-      const res = await sendOtp(phone);
-      if (res.success) {
+    // DEV BYPASS
+    if (import.meta.env.DEV || import.meta.env.VITE_BYPASS_FIREBASE === 'true') {
+      setTimeout(() => {
         setOtpSent(true);
-        setMessage('OTP sent! Check console in development mode.');
-        if (res.otp) {
-          setTempOtp(res.otp); // Save development OTP
-        }
-      } else {
-        setError(res.message || 'Failed to send OTP');
-      }
+        setMessage('DEV BYPASS: OTP bypassed for development. Enter any 6 digits.');
+        setLoading(false);
+      }, 500);
+      return;
+    }
+
+    try {
+      setupRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+      const phoneNumberWithCode = '+91' + phone; // Assuming India Country Code
+      
+      const confirmation = await signInWithPhoneNumber(auth, phoneNumberWithCode, appVerifier);
+      setConfirmationResult(confirmation);
+      setOtpSent(true);
+      setMessage('OTP sent successfully to your phone.');
     } catch (err) {
-      setError('Connection failure');
+      console.error("Firebase Send OTP Error:", err);
+      setError(err.message || 'Failed to send OTP');
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
     } finally {
       setLoading(false);
     }
@@ -55,8 +92,37 @@ const Login = () => {
     setError('');
     setLoading(true);
 
+    // DEV BYPASS
+    if (import.meta.env.DEV || import.meta.env.VITE_BYPASS_FIREBASE === 'true') {
+      try {
+        const devToken = `DEV_TOKEN_${phone}`;
+        setIdToken(devToken);
+
+        const res = await verifyFirebaseToken(devToken);
+        if (res.success) {
+          if (res.isNewUser) {
+            setShowProfilePopup(true);
+            setMessage('DEV BYPASS: Please complete your registration.');
+          } else {
+            navigate('/customer');
+          }
+        } else {
+          setError(res.message || 'Failed to verify account on backend');
+        }
+      } catch (err) {
+        setError('Dev bypass failed');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
-      const res = await verifyOtp(phone, otp);
+      const result = await confirmationResult.confirm(otp);
+      const token = await result.user.getIdToken();
+      setIdToken(token);
+
+      const res = await verifyFirebaseToken(token);
       if (res.success) {
         if (res.isNewUser) {
           // Trigger the Name & Address registration popup
@@ -67,10 +133,11 @@ const Login = () => {
           navigate('/customer');
         }
       } else {
-        setError(res.message || 'Invalid OTP');
+        setError(res.message || 'Failed to verify account on backend');
       }
     } catch (err) {
-      setError('Connection failure');
+      console.error("Firebase Verify OTP Error:", err);
+      setError('Invalid OTP code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -84,7 +151,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await registerCustomer(custName, phone, custAddress);
+      const res = await registerCustomer(custName, idToken, custAddress);
       if (res.success) {
         setShowProfilePopup(false);
         navigate('/customer');
@@ -101,8 +168,8 @@ const Login = () => {
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-marine-950 via-slate-900 to-marine-900 overflow-hidden">
       {/* Decorative floating water blobs */}
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-cyan-600/10 blur-3xl animate-float" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-teal-500/10 blur-3xl animate-float [animation-delay:2s]" />
+      <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full bg-cyan-600/10 blur-3xl animate-float pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-teal-500/10 blur-3xl animate-float [animation-delay:2s] pointer-events-none" />
 
       <div className="w-full max-w-md glass-panel rounded-2xl overflow-hidden shadow-2xl z-10 border border-marine-800">
         
@@ -130,6 +197,9 @@ const Login = () => {
             </div>
           )}
 
+          {/* Invisible recaptcha container */}
+          <div id="recaptcha-container"></div>
+
           <div>
             {!otpSent ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
@@ -138,17 +208,17 @@ const Login = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                      <Phone size={16} />
+                  <div className="relative flex items-center">
+                    <span className="absolute left-0 pl-3 flex items-center text-slate-500 font-semibold text-sm">
+                      +91
                     </span>
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="e.g. 9876543210"
+                      placeholder="9876543210"
                       maxLength={10}
-                      className="w-full bg-marine-950/50 border border-marine-800 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                      className="w-full bg-marine-950/50 border border-marine-800 rounded-lg py-2.5 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -165,11 +235,6 @@ const Login = () => {
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <div className="text-center mb-6">
                   <p className="text-sm text-slate-300">Enter the 6-digit OTP code sent to your phone.</p>
-                  {tempOtp && (
-                    <div className="mt-3 p-2 bg-cyan-950/60 rounded border border-cyan-800/40 text-cyan-300 text-xs font-mono">
-                      Dev Testing OTP: <span className="font-bold text-sm tracking-wider">{tempOtp}</span>
-                    </div>
-                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">OTP Code</label>
@@ -190,7 +255,7 @@ const Login = () => {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { setOtpSent(false); setTempOtp(''); setOtp(''); }}
+                    onClick={() => { setOtpSent(false); setOtp(''); }}
                     className="flex-1 py-2.5 rounded-lg border border-marine-880 text-slate-300 font-semibold text-sm hover:bg-marine-900 hover:text-white transition-colors cursor-pointer"
                   >
                     Back
@@ -224,7 +289,7 @@ const Login = () => {
                 <User size={24} className="animate-pulse-glow" />
               </div>
               <h2 className="text-xl font-bold text-white">Setup Customer Account</h2>
-              <p className="text-xs text-slate-400 mt-1">We couldn't find an account for <span className="text-teal-400 font-bold">{phone}</span>. Let's create one!</p>
+              <p className="text-xs text-slate-400 mt-1">We couldn't find an account for your number. Let's create one!</p>
             </div>
 
             <form onSubmit={handleCustomerRegister} className="space-y-4">

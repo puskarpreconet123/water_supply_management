@@ -80,27 +80,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Send OTP (customer)
-  const sendOtp = async (phone) => {
-    try {
-      const res = await fetch(`${API_URL}/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
-      });
-      return await res.json();
-    } catch (err) {
-      return { success: false, message: 'Server connection failed' };
-    }
-  };
-
-  // Verify OTP (customer)
-  const verifyOtp = async (phone, otp) => {
+  // Send Firebase ID Token to backend to verify and login
+  const verifyFirebaseToken = async (idToken) => {
     try {
       const res = await fetch(`${API_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp })
+        body: JSON.stringify({ idToken })
       });
       const data = await res.json();
       
@@ -117,12 +103,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Register Customer (if isNewUser is true)
-  const registerCustomer = async (name, phone, address) => {
+  const registerCustomer = async (name, idToken, address) => {
     try {
       const res = await fetch(`${API_URL}/auth/register-customer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, address })
+        body: JSON.stringify({ name, idToken, address })
       });
       const data = await res.json();
       if (data.success) {
@@ -131,6 +117,34 @@ export const AuthProvider = ({ children }) => {
         setUser(data.user);
       }
       return data;
+    } catch (err) {
+      return { success: false, message: 'Server connection failed' };
+    }
+  };
+
+  // Forgot Password
+  const forgotPassword = async (email) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, message: 'Server connection failed' };
+    }
+  };
+
+  // Reset Password
+  const resetPassword = async (tokenParam, password) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/reset-password/${tokenParam}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      return await res.json();
     } catch (err) {
       return { success: false, message: 'Server connection failed' };
     }
@@ -169,7 +183,6 @@ export const AuthProvider = ({ children }) => {
       ...options.headers
     };
     
-    // Auto remove Content-Type if uploading files (though we use JSON for this app)
     if (options.body && options.body instanceof FormData) {
       delete headers['Content-Type'];
     }
@@ -180,7 +193,6 @@ export const AuthProvider = ({ children }) => {
         headers
       });
       
-      // Handle 401 Unauthorized
       if (res.status === 401) {
         logout();
         return { success: false, message: 'Session expired. Please log in again.' };
@@ -200,9 +212,10 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       registerVendor,
-      sendOtp,
-      verifyOtp,
+      verifyFirebaseToken,
       registerCustomer,
+      forgotPassword,
+      resetPassword,
       logout,
       authFetch,
       refreshUser

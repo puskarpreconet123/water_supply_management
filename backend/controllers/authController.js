@@ -1,6 +1,8 @@
 const User = require('../models/User');
-const Otp = require('../models/Otp');
+const adminAuth = require('../config/firebase');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -101,45 +103,16 @@ exports.login = async (req, res) => {
   }
 };
 
-// @desc    Send OTP to customer phone
+// @desc    Send OTP to customer phone (Now handled by Firebase Frontend)
 // @route   POST /api/v1/auth/send-otp
 // @access  Public
 exports.sendOtp = async (req, res) => {
-  try {
-    const { phone } = req.body;
-
-    if (!phone) {
-      return res.status(400).json({ success: false, message: 'Please provide phone number' });
-    }
-
-    if (!validatePhone(phone)) {
-      return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
-    }
-
-    // Generate a 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Remove any previous OTPs for this phone number
-    await Otp.deleteMany({ phone });
-
-    // Save to Database
-    await Otp.create({ phone, otp });
-
-    // --- FUTURE INTEGRATION PLACEHOLDER ---
-    // Here you would call your SMS gateway provider, e.g.
-    // await smsProvider.send(phone, `Your OTP is ${otp}`);
-    // --------------------------------------
-    console.log(`[SMS-PROVIDER PLACEHOLDER] Generated OTP for ${phone}: ${otp}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'OTP sent successfully',
-      // For development, return it to client so they don't have to check server logs
-      otp: process.env.NODE_ENV === 'production' ? undefined : otp
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  // We keep this endpoint returning success so frontend doesn't break if it accidentally calls it, 
+  // but actual OTP is sent by Firebase on the frontend.
+  res.status(200).json({
+    success: true,
+    message: 'OTP should be sent via Firebase Client SDK'
+  });
 };
 
 // @desc    Verify OTP for login
@@ -147,24 +120,27 @@ exports.sendOtp = async (req, res) => {
 // @access  Public
 exports.verifyOtp = async (req, res) => {
   try {
-    const { phone, otp } = req.body;
+    const { idToken } = req.body;
 
-    if (!phone || !otp) {
-      return res.status(400).json({ success: false, message: 'Please provide phone and OTP' });
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: 'Please provide idToken' });
     }
 
-    if (!validatePhone(phone)) {
-      return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
+    let phone;
+    // DEV BYPASS
+    if (idToken.startsWith('DEV_TOKEN_')) {
+      phone = idToken.replace('DEV_TOKEN_', '');
+    } else {
+      // Verify the Firebase ID token
+      const decodedToken = await adminAuth.verifyIdToken(idToken);
+      
+      phone = decodedToken.phone_number;
+      if (phone && phone.startsWith('+91')) {
+        phone = phone.slice(3);
+      } else if (phone && phone.startsWith('+')) {
+        phone = phone.slice(-10);
+      }
     }
-
-    // Find OTP record
-    const otpRecord = await Otp.findOne({ phone, otp });
-    if (!otpRecord) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
-    }
-
-    // Delete the OTP after successful verification
-    await Otp.deleteOne({ _id: otpRecord._id });
 
     // Check if customer exists in the user database
     const user = await User.findOne({ phone, role: 'customer' });
@@ -174,7 +150,8 @@ exports.verifyOtp = async (req, res) => {
       return res.status(200).json({
         success: true,
         isNewUser: true,
-        message: 'OTP verified. Account creation needed.'
+        message: 'OTP verified. Account creation needed.',
+        phone: phone
       });
     }
 
@@ -191,7 +168,8 @@ exports.verifyOtp = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Firebase Auth Error:", error);
+    res.status(401).json({ success: false, message: 'Invalid or expired Firebase token' });
   }
 };
 
@@ -200,14 +178,26 @@ exports.verifyOtp = async (req, res) => {
 // @access  Public
 exports.registerCustomer = async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, idToken, address } = req.body;
 
-    if (!name || !phone || !address) {
-      return res.status(400).json({ success: false, message: 'Please provide name, phone and address' });
+    if (!name || !idToken || !address) {
+      return res.status(400).json({ success: false, message: 'Please provide name, idToken and address' });
     }
 
-    if (!validatePhone(phone)) {
-      return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
+    let phone;
+    // DEV BYPASS
+    if (idToken.startsWith('DEV_TOKEN_')) {
+      phone = idToken.replace('DEV_TOKEN_', '');
+    } else {
+      // Verify the Firebase ID token
+      const decodedToken = await adminAuth.verifyIdToken(idToken);
+      
+      phone = decodedToken.phone_number;
+      if (phone && phone.startsWith('+91')) {
+        phone = phone.slice(3);
+      } else if (phone && phone.startsWith('+')) {
+        phone = phone.slice(-10);
+      }
     }
 
     // Verify user doesn't already exist with this phone
@@ -236,7 +226,8 @@ exports.registerCustomer = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Firebase Auth Error:", error);
+    res.status(401).json({ success: false, message: 'Invalid or expired Firebase token' });
   }
 };
 
@@ -247,6 +238,90 @@ exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     res.status(200).json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Forgot Password
+// @route   POST /api/v1/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'There is no user with that email' });
+    }
+
+    // Admins and Vendors only (optional, but requested in prompt)
+    if (user.role === 'customer') {
+      return res.status(400).json({ success: false, message: 'Customers must use phone authentication' });
+    }
+
+    // Get reset token
+    const resetToken = user.getResetPasswordToken();
+
+    await user.save({ validateBeforeSave: false });
+
+    // Create reset url
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Password Reset Token',
+        message
+      });
+
+      res.status(200).json({ success: true, message: 'Email sent' });
+    } catch (err) {
+      console.error(err);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+
+      await user.save({ validateBeforeSave: false });
+
+      res.status(500).json({ success: false, message: 'Email could not be sent' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Reset Password
+// @route   PUT /api/v1/auth/reset-password/:token
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+    }
+
+    // Set new password
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      token: generateToken(user._id),
+      message: 'Password updated successfully'
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

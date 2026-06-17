@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Plus, List, Users, CreditCard, LogOut, RefreshCw, Layers, Menu, X, Trash2, Info, IndianRupee } from 'lucide-react';
+import { Shield, Plus, List, Users, CreditCard, LogOut, RefreshCw, Layers, Menu, X, Trash2, Info, IndianRupee, PieChart, Activity } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { logout, authFetch } = useAuth();
@@ -9,6 +9,10 @@ const AdminDashboard = () => {
   const [plans, setPlans] = useState([]);
   const [stats, setStats] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Chart interactivity states
+  const [hoveredDonutSegment, setHoveredDonutSegment] = useState(null);
+  const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
 
   // Razorpay Gateway Config states
   const [rzpKeyId, setRzpKeyId] = useState('');
@@ -391,6 +395,253 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Charts and Visual Analytics */}
+            {(() => {
+              // calculations
+              const totalVendors = stats?.vendorsCount || 0;
+              const activeSubs = stats?.activeSubsCount || 0;
+              const unsubscribedVendors = Math.max(0, totalVendors - activeSubs);
+              
+              const circ = 2 * Math.PI * 45; // ~282.74
+              const activePercent = totalVendors > 0 ? (activeSubs / totalVendors) : 0;
+              const unsubscribedPercent = totalVendors > 0 ? (unsubscribedVendors / totalVendors) : 0;
+              
+              const activeStroke = activePercent * circ;
+              const unsubscribedStroke = unsubscribedPercent * circ;
+
+              // Top 5 capacity utilization vendors
+              const capacityVendors = [...vendors]
+                .filter(v => v.subscription)
+                .map(v => {
+                  const current = v.customerCount || 0;
+                  const limit = v.subscription.userLimit || 1;
+                  const pct = Math.min(100, Math.round((current / limit) * 100));
+                  return {
+                    _id: v._id,
+                    name: v.name,
+                    current,
+                    limit,
+                    pct
+                  };
+                })
+                .sort((a, b) => b.pct - a.pct)
+                .slice(0, 5);
+
+              // Plans count breakdown
+              const planCounts = {};
+              vendors.forEach(v => {
+                if (v.subscription && v.subscription.planName) {
+                  const name = v.subscription.planName;
+                  planCounts[name] = (planCounts[name] || 0) + 1;
+                }
+              });
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Card: Donut Subscription Share */}
+                  <div className="glass-panel rounded-2xl p-6 border border-marine-800 flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 mb-4">
+                        <PieChart size={16} className="text-cyan-650" />
+                        Subscription Distribution
+                      </h3>
+                      <p className="text-xs text-slate-400 mb-6">Proportion of distribution channels with active paid licenses.</p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-4">
+                      {/* SVG Donut */}
+                      <div className="relative w-[150px] h-[150px]">
+                        <svg width="150" height="150" viewBox="0 0 120 120" className="transform -rotate-90">
+                          <defs>
+                            <filter id="svgGlow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feGaussianBlur stdDeviation="3" result="blur" />
+                              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                            </filter>
+                          </defs>
+                          
+                          {/* Background Circle */}
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r="45"
+                            fill="transparent"
+                            stroke="#e2e8f0"
+                            strokeWidth="10"
+                          />
+
+                          {totalVendors > 0 ? (
+                            <>
+                              {/* Active Segment */}
+                              {activeSubs > 0 && (
+                                <circle
+                                  cx="60"
+                                  cy="60"
+                                  r="45"
+                                  fill="transparent"
+                                  stroke="#0284c7"
+                                  strokeWidth="10"
+                                  strokeDasharray={`${activePercent * 282.74} 282.74`}
+                                  strokeDashoffset="0"
+                                  strokeLinecap="round"
+                                  className="transition-all duration-300 cursor-pointer"
+                                  style={{
+                                    filter: hoveredDonutSegment === 'active' ? 'url(#svgGlow)' : 'none',
+                                    strokeWidth: hoveredDonutSegment === 'active' ? 12 : 10
+                                  }}
+                                  onMouseEnter={() => setHoveredDonutSegment('active')}
+                                  onMouseLeave={() => setHoveredDonutSegment(null)}
+                                />
+                              )}
+
+                              {/* Unsubscribed Segment */}
+                              {unsubscribedVendors > 0 && (
+                                <circle
+                                  cx="60"
+                                  cy="60"
+                                  r="45"
+                                  fill="transparent"
+                                  stroke="#e11d48"
+                                  strokeWidth="10"
+                                  strokeDasharray={`${unsubscribedPercent * 282.74} 282.74`}
+                                  strokeDashoffset={`-${activePercent * 282.74}`}
+                                  strokeLinecap="round"
+                                  className="transition-all duration-300 cursor-pointer"
+                                  style={{
+                                    filter: hoveredDonutSegment === 'unsubscribed' ? 'url(#svgGlow)' : 'none',
+                                    strokeWidth: hoveredDonutSegment === 'unsubscribed' ? 12 : 10
+                                  }}
+                                  onMouseEnter={() => setHoveredDonutSegment('unsubscribed')}
+                                  onMouseLeave={() => setHoveredDonutSegment(null)}
+                                />
+                              )}
+                            </>
+                          ) : (
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="45"
+                              fill="transparent"
+                              stroke="#cbd5e1"
+                              strokeWidth="10"
+                            />
+                          )}
+                        </svg>
+
+                        {/* Text Overlay in Center */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                          {hoveredDonutSegment === 'active' ? (
+                            <>
+                              <span className="text-lg font-extrabold text-cyan-600">{activeSubs}</span>
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Active</span>
+                            </>
+                          ) : hoveredDonutSegment === 'unsubscribed' ? (
+                            <>
+                              <span className="text-lg font-extrabold text-rose-500">{unsubscribedVendors}</span>
+                              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Unsubbed</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xl font-extrabold text-slate-800">
+                                {totalVendors > 0 ? `${Math.round(activePercent * 100)}%` : '0%'}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Subscribed</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Legend and Plan Counts */}
+                      <div className="space-y-3 shrink-0">
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="w-3.5 h-3.5 rounded bg-sky-600 shrink-0" />
+                          <span className="text-slate-600">Active Licenses:</span>
+                          <span className="font-bold text-slate-800">{activeSubs}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="w-3.5 h-3.5 rounded bg-rose-600 shrink-0" />
+                          <span className="text-slate-600">Expired/Unsubscribed:</span>
+                          <span className="font-bold text-slate-800">{unsubscribedVendors}</span>
+                        </div>
+                        
+                        {/* Subscribed plans mini breakdown */}
+                        {Object.keys(planCounts).length > 0 && (
+                          <div className="border-t border-marine-800/40 pt-2.5 mt-2.5 space-y-1">
+                            <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider block">Plan Distribution</span>
+                            {Object.entries(planCounts).map(([name, count]) => (
+                              <div key={name} className="flex justify-between items-center text-[11px] text-slate-500">
+                                <span>{name}</span>
+                                <span className="font-semibold text-slate-700">({count})</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card: Capacity Utilization Horizontal Bar Chart */}
+                  <div className="glass-panel rounded-2xl p-6 border border-marine-800 flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2 mb-4">
+                        <Activity size={16} className="text-emerald-600 animate-pulse-glow" />
+                        Top Vendors Client Capacity
+                      </h3>
+                      <p className="text-xs text-slate-400 mb-5">Usage limits breakdown per vendor relative to plan quotas.</p>
+                    </div>
+
+                    <div className="space-y-4 py-2">
+                      {capacityVendors.map((vendor, index) => {
+                        // Color-code by capacity thresholds
+                        const barColor =
+                          vendor.pct >= 85 ? 'bg-rose-500' :
+                          vendor.pct >= 50 ? 'bg-sky-500' : 'bg-emerald-500';
+                        const textColor =
+                          vendor.pct >= 85 ? 'text-rose-500' :
+                          vendor.pct >= 50 ? 'text-sky-650' : 'text-emerald-600';
+
+                        return (
+                          <div
+                            key={vendor._id}
+                            className="space-y-1.5 cursor-pointer relative animate-fade-in"
+                            onMouseEnter={() => setHoveredBarIndex(index)}
+                            onMouseLeave={() => setHoveredBarIndex(null)}
+                          >
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-slate-700">{vendor.name}</span>
+                              <span className="text-slate-500">
+                                <span className={`${textColor} font-bold`}>{vendor.current}</span> / {vendor.limit} Customers
+                              </span>
+                            </div>
+
+                            {/* Bar container */}
+                            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200/50 shadow-inner relative">
+                              <div
+                                className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
+                                style={{ width: `${vendor.pct}%` }}
+                              />
+                            </div>
+
+                            {/* Dynamic tooltip on hover */}
+                            {hoveredBarIndex === index && (
+                              <div className="absolute -top-6 right-0 bg-slate-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow z-10 animate-fade-in !text-white">
+                                {vendor.pct}% capacity utilized
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {capacityVendors.length === 0 && (
+                        <div className="text-center py-8 text-slate-500 text-xs border border-dashed border-marine-800 rounded-xl">
+                          No active subscription accounts to track limit capacity.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Quick Action Guides */}
             <div className="glass-panel rounded-2xl p-6 border border-marine-800">

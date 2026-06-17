@@ -6,6 +6,8 @@ import BusinessLogin from './pages/BusinessLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import VendorDashboard from './pages/VendorDashboard';
 import CustomerDashboard from './pages/CustomerDashboard';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Route Guard for authenticated users by role
 const PrivateRoute = ({ children, allowedRoles }) => {
@@ -77,6 +79,8 @@ function App() {
           {/* Public Auth pages */}
           <Route path="/login" element={<Login />} />
           <Route path="/business-login" element={<BusinessLogin />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* Admin Level (1) */}
           <Route
