@@ -8,7 +8,7 @@ const {
   getPayments,
   exportPDFReport
 } = require('../controllers/orderController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, checkSubscription } = require('../middleware/auth');
 
 router.use(protect);
 
@@ -16,10 +16,11 @@ router.use(protect);
 router.get('/pdf-report', authorize('vendor'), exportPDFReport);
 
 // Logging payments (Vendor only)
-router.post('/payments', authorize('vendor'), recordPayment);
+router.post('/payments', authorize('vendor'), checkSubscription, recordPayment);
 
 // Update status (Vendor only)
-router.put('/:id/status', authorize('vendor'), updateOrderStatus);
+router.put('/:id/status', authorize('vendor'), checkSubscription, updateOrderStatus);
+
 
 // Orders List & Details (Vendor & Customer)
 router.post('/', authorize('vendor', 'customer'), createOrder);

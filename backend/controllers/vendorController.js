@@ -153,16 +153,17 @@ exports.addCustomer = async (req, res) => {
       }
     } else {
       // Create new customer account automatically
-      if (!name || !address) {
+      if (!name) {
         return res.status(400).json({
           success: false,
-          message: 'Phone number does not exist. Please provide customer name and address to register.'
+          message: 'Phone number does not exist. Please provide customer name to register.'
         });
       }
       customer = await User.create({
         name,
         phone,
-        address,
+        address: address || '',
+        addresses: address ? [address] : [],
         role: 'customer'
       });
     }
@@ -331,4 +332,22 @@ exports.updateCustomerLedger = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Get Subscription Plans for Vendors (Excludes free plans)
+// @route   GET /api/v1/vendor/plans
+// @access  Private (Vendor only)
+exports.getVendorPlans = async (req, res) => {
+  try {
+    const SubscriptionPlan = require('../models/SubscriptionPlan');
+    const plans = await SubscriptionPlan.find({ isActive: true });
+    // Filter out free plans and plans with price = 0
+    const paidPlans = plans.filter(
+      (plan) => plan.price > 0 && !(plan.name && plan.name.toLowerCase().includes('free'))
+    );
+    res.status(200).json({ success: true, data: paidPlans });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

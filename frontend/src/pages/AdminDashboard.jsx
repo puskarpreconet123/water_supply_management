@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Plus, List, Users, CreditCard, LogOut, RefreshCw, Layers, Menu, X, Trash2, Info, IndianRupee, PieChart, Activity } from 'lucide-react';
+import { Shield, Plus, List, Users, CreditCard, LogOut, RefreshCw, Layers, Menu, X, Trash2, Info, IndianRupee, PieChart, Activity, Edit, UserCheck, UserX } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { logout, authFetch } = useAuth();
@@ -23,6 +23,17 @@ const AdminDashboard = () => {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [showAssignModal, setShowAssignModal] = useState(false);
+
+  // Edit Vendor modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEditVendor, setSelectedEditVendor] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+
+  // Bulk Delete states
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllConfirmInput, setDeleteAllConfirmInput] = useState('');
   
   // Create Plan Form states
   const [planName, setPlanName] = useState('');
@@ -141,6 +152,112 @@ const AdminDashboard = () => {
         fetchData();
       } else {
         setError(res.message || 'Failed to delete plan');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    }
+  };
+
+  // Handle edit vendor details
+  const handleEditVendor = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!editName || !editPhone) {
+      return setError('Name and phone number are required');
+    }
+
+    try {
+      const res = await authFetch(`/admin/vendors/${selectedEditVendor._id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editName,
+          phone: editPhone,
+          email: editEmail
+        })
+      });
+
+      if (res.success) {
+        setSuccess(`Updated vendor "${editName}" successfully!`);
+        setShowEditModal(false);
+        setSelectedEditVendor(null);
+        fetchData();
+      } else {
+        setError(res.message || 'Failed to update vendor');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    }
+  };
+
+  // Handle toggling vendor active/inactive state
+  const handleToggleActive = async (vendor) => {
+    setError('');
+    setSuccess('');
+    const newStatus = !vendor.isActive;
+    try {
+      const res = await authFetch(`/admin/vendors/${vendor._id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          isActive: newStatus
+        })
+      });
+
+      if (res.success) {
+        setSuccess(`Vendor "${vendor.name}" has been ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+        fetchData();
+      } else {
+        setError(res.message || 'Failed to toggle vendor status');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    }
+  };
+
+  // Handle deleting single vendor
+  const handleDeleteVendor = async (vendorId, vendorName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete vendor "${vendorName}" and all their associated subscriptions, products, customers, and order history? This action cannot be undone.`)) {
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      const res = await authFetch(`/admin/vendors/${vendorId}`, {
+        method: 'DELETE'
+      });
+
+      if (res.success) {
+        setSuccess(`Vendor "${vendorName}" deleted successfully!`);
+        fetchData();
+      } else {
+        setError(res.message || 'Failed to delete vendor');
+      }
+    } catch (err) {
+      setError('Connection failure');
+    }
+  };
+
+  // Handle deleting all vendors
+  const handleDeleteAllVendors = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (deleteAllConfirmInput !== 'DELETE ALL VENDORS') {
+      return setError('Confirmation string did not match. Action aborted.');
+    }
+
+    try {
+      const res = await authFetch('/admin/vendors', {
+        method: 'DELETE'
+      });
+
+      if (res.success) {
+        setSuccess('All vendors and their associated data have been permanently deleted.');
+        setShowDeleteAllModal(false);
+        setDeleteAllConfirmInput('');
+        fetchData();
+      } else {
+        setError(res.message || 'Failed to delete all vendors');
       }
     } catch (err) {
       setError('Connection failure');
@@ -603,9 +720,7 @@ const AdminDashboard = () => {
                         return (
                           <div
                             key={vendor._id}
-                            className="space-y-1.5 cursor-pointer relative animate-fade-in"
-                            onMouseEnter={() => setHoveredBarIndex(index)}
-                            onMouseLeave={() => setHoveredBarIndex(null)}
+                            className="space-y-1.5 cursor-pointer relative animate-fade-in group"
                           >
                             <div className="flex justify-between text-xs font-semibold">
                               <span className="text-slate-700">{vendor.name}</span>
@@ -623,11 +738,9 @@ const AdminDashboard = () => {
                             </div>
 
                             {/* Dynamic tooltip on hover */}
-                            {hoveredBarIndex === index && (
-                              <div className="absolute -top-6 right-0 bg-slate-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow z-10 animate-fade-in !text-white">
-                                {vendor.pct}% capacity utilized
-                              </div>
-                            )}
+                            <div className="absolute -top-6 right-0 bg-slate-900 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow z-10 !text-white pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                              {vendor.pct}% capacity utilized
+                            </div>
                           </div>
                         );
                       })}
@@ -682,9 +795,20 @@ const AdminDashboard = () => {
                 <h1 className="text-xl md:text-2xl font-bold text-white">Water Vendors</h1>
                 <p className="text-xs md:text-sm text-slate-400 mt-1">Review active water businesses, subscriptions, and active customers.</p>
               </div>
-              <span className="self-start sm:self-center px-3 py-1 bg-marine-card border border-marine-800 rounded-full text-xs font-semibold text-cyan-400">
-                {vendors.length} Vendors Total
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {vendors.length > 0 && (
+                  <button
+                    onClick={() => { setShowDeleteAllModal(true); setDeleteAllConfirmInput(''); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/20 hover:border-rose-500 text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete All Vendors
+                  </button>
+                )}
+                <span className="self-start sm:self-center px-3 py-1 bg-marine-card border border-marine-800 rounded-full text-xs font-semibold text-cyan-400">
+                  {vendors.length} Vendors Total
+                </span>
+              </div>
             </div>
 
             {/* Scrollable Container for responsive table */}
@@ -694,6 +818,7 @@ const AdminDashboard = () => {
                   <thead>
                     <tr className="bg-marine-card border-b border-marine-800 text-slate-400 text-xs font-bold uppercase tracking-wider">
                       <th className="p-4">Vendor Details</th>
+                      <th className="p-4">Status</th>
                       <th className="p-4">Active Plan</th>
                       <th className="p-4">Expiry Date</th>
                       <th className="p-4">Clients Count</th>
@@ -710,12 +835,22 @@ const AdminDashboard = () => {
                             <div className="text-xs text-slate-400 mt-0.5">{vendor.phone} | {vendor.email || 'No email'}</div>
                           </td>
                           <td className="p-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                              vendor.isActive
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${vendor.isActive ? 'bg-emerald-500' : 'bg-rose-550'}`} />
+                              {vendor.isActive ? 'Active' : 'Deactivated'}
+                            </span>
+                          </td>
+                          <td className="p-4">
                             {vendor.subscription ? (
                               <span className="inline-block px-2.5 py-1 bg-cyan-950/60 border border-cyan-800/40 text-cyan-400 rounded text-xs font-medium">
                                 {vendor.subscription.planName}
                               </span>
                             ) : (
-                              <span className="text-rose-400 text-xs font-semibold">No active plan</span>
+                              <span className="text-rose-450 text-xs font-semibold">No active plan</span>
                             )}
                           </td>
                           <td className="p-4 text-slate-300">
@@ -729,19 +864,53 @@ const AdminDashboard = () => {
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-white">{vendor.customerCount}</span>
                               {vendor.subscription && (
-                                <span className={`text-xs ${isExceeded ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
+                                <span className={`text-xs ${isExceeded ? 'text-rose-450 font-bold' : 'text-slate-500'}`}>
                                   / {vendor.subscription.userLimit} max
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="p-4 text-right">
-                            <button
-                              onClick={() => { setSelectedVendor(vendor); setShowAssignModal(true); }}
-                              className="px-3.5 py-1.5 bg-cyan-600/10 hover:bg-cyan-600 border border-cyan-500/20 hover:border-cyan-500 text-cyan-400 hover:text-white rounded text-xs font-semibold cursor-pointer transition-colors"
-                            >
-                              Assign Plan
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => { setSelectedVendor(vendor); setShowAssignModal(true); }}
+                                className="px-2.5 py-1.5 bg-cyan-600/10 hover:bg-cyan-600 border border-cyan-500/20 hover:border-cyan-500 text-cyan-400 hover:text-white rounded text-xs font-semibold cursor-pointer transition-colors"
+                                title="Assign Plan"
+                              >
+                                Assign Plan
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedEditVendor(vendor);
+                                  setEditName(vendor.name);
+                                  setEditPhone(vendor.phone);
+                                  setEditEmail(vendor.email || '');
+                                  setShowEditModal(true);
+                                }}
+                                className="p-1.5 bg-amber-500/10 hover:bg-amber-600 border border-amber-500/20 hover:border-amber-500 text-amber-600 hover:text-white rounded text-xs cursor-pointer transition-colors"
+                                title="Edit Vendor Details"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleToggleActive(vendor)}
+                                className={`p-1.5 border rounded text-xs cursor-pointer transition-colors ${
+                                  vendor.isActive
+                                    ? 'bg-rose-500/10 hover:bg-rose-600 border-rose-500/20 hover:border-rose-500 text-rose-500 hover:text-white'
+                                    : 'bg-emerald-500/10 hover:bg-emerald-600 border-emerald-500/20 hover:border-emerald-500 text-emerald-600 hover:text-white'
+                                }`}
+                                title={vendor.isActive ? 'Deactivate Vendor' : 'Activate Vendor'}
+                              >
+                                {vendor.isActive ? <UserX size={14} /> : <UserCheck size={14} />}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteVendor(vendor._id, vendor.name)}
+                                className="p-1.5 bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 hover:border-rose-550 text-rose-500 hover:text-white rounded text-xs cursor-pointer transition-colors"
+                                title="Delete Vendor"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -977,6 +1146,126 @@ const AdminDashboard = () => {
                   className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer"
                 >
                   Confirm Assignment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT VENDOR MODAL */}
+      {showEditModal && selectedEditVendor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-cyan-500/30">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center p-3 rounded-full bg-cyan-500/10 mb-3 border border-cyan-500/20 text-cyan-400">
+                <Edit size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-white">Edit Vendor Profile</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Modify details for vendor <span className="text-cyan-400 font-bold">{selectedEditVendor.name}</span>.
+              </p>
+            </div>
+
+            <form onSubmit={handleEditVendor} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-mono">Business/Vendor Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Vendor Name"
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-mono">Phone Number</label>
+                <input
+                  type="text"
+                  required
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="10-digit Phone"
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-mono">Email Address (Optional)</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setSelectedEditVendor(null); }}
+                  className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BULK DELETE VENDORS MODAL */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-rose-500/30">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center p-3 rounded-full bg-rose-500/10 mb-3 border border-rose-500/20 text-rose-500 animate-pulse">
+                <Trash2 size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-rose-650">Delete All Vendors?</h2>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                WARNING: This is a destructive action. This will permanently delete <span className="font-bold text-slate-700">ALL registered vendors</span>, along with all their products, subscription billing records, connected customer listings, and order transaction history.
+              </p>
+            </div>
+
+            <form onSubmit={handleDeleteAllVendors} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-mono">
+                  To confirm, type <span className="text-rose-500 font-bold">DELETE ALL VENDORS</span> below:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={deleteAllConfirmInput}
+                  onChange={(e) => setDeleteAllConfirmInput(e.target.value)}
+                  placeholder="DELETE ALL VENDORS"
+                  className="w-full bg-marine-950 border border-rose-500/30 focus:border-rose-500 rounded-lg p-2.5 text-sm text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteAllModal(false); setDeleteAllConfirmInput(''); }}
+                  className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleteAllConfirmInput !== 'DELETE ALL VENDORS'}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Delete Everything
                 </button>
               </div>
             </form>

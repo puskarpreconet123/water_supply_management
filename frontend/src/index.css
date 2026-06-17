@@ -149,13 +149,39 @@ button.border-marine-880:hover {
   background-color: rgba(16, 185, 129, 0.12) !important; /* Light green pill */
   color: #10b981 !important;
 }
+.bg-emerald-500\/10:hover {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+.bg-emerald-500\/10:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
 .bg-rose-500\/10 {
   background-color: rgba(244, 63, 94, 0.12) !important; /* Light red pill */
   color: #e11d48 !important;
 }
+.bg-rose-500\/10:hover {
+  background-color: #e11d48 !important;
+  color: #ffffff !important;
+}
+.bg-rose-500\/10:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
 .bg-amber-500\/10 {
   background-color: rgba(245, 158, 11, 0.12) !important; /* Light amber pill */
   color: #d97706 !important;
+}
+.bg-amber-500\/10:hover {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+}
+.bg-amber-500\/10:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 /* Dev OTP Box in Login */
@@ -174,6 +200,10 @@ button.border-marine-880:hover {
 .bg-rose-950\/40:hover {
   background-color: #fecdd3 !important;
   color: #be123c !important;
+}
+.bg-rose-950\/40:hover svg {
+  color: #be123c !important;
+  stroke: #be123c !important;
 }
 
 /* Assign Subscription Plan buttons */

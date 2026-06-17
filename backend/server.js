@@ -55,6 +55,17 @@ const seedDefaults = async () => {
     }
 
     // 2. Seed Default Plans
+    let freeTrialPlan = await SubscriptionPlan.findOne({ name: 'Free Trial' });
+    if (!freeTrialPlan) {
+      await SubscriptionPlan.create({
+        name: 'Free Trial',
+        price: 0,
+        duration: 'monthly',
+        userLimit: 10000
+      });
+      console.log('Default Free Trial Plan seeded (up to 10k users, 1 month)');
+    }
+
     let starterPlan = await SubscriptionPlan.findOne({ name: 'Monthly Starter' });
     if (!starterPlan) {
       const createdPlans = await SubscriptionPlan.create([

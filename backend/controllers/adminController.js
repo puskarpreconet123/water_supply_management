@@ -198,3 +198,116 @@ exports.getAdminStats = async (req, res) => {
   }
 };
 
+
+// @desc    Update Vendor Details (activate, deactivate, edit)
+// @route   PUT /api/v1/admin/vendors/:id
+// @access  Private (Admin only)
+exports.updateVendor = async (req, res) => {
+  try {
+    const { name, phone, email, isActive } = req.body;
+    let vendor = await User.findOne({ _id: req.params.id, role: 'vendor' });
+
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    if (name) vendor.name = name;
+    
+    if (phone) {
+      if (!/^\d{10}$/.test(phone)) {
+        return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
+      }
+      const phoneExists = await User.findOne({ phone, _id: { $ne: vendor._id } });
+      if (phoneExists) {
+        return res.status(400).json({ success: false, message: 'Phone number is already in use by another user' });
+      }
+      vendor.phone = phone;
+    }
+
+    if (email !== undefined) {
+      if (email && email.trim() !== '') {
+        const emailExists = await User.findOne({ email: email.toLowerCase(), _id: { $ne: vendor._id } });
+        if (emailExists) {
+          return res.status(400).json({ success: false, message: 'Email is already in use by another user' });
+        }
+        vendor.email = email.toLowerCase();
+      } else {
+        vendor.email = undefined;
+      }
+    }
+
+    if (isActive !== undefined) vendor.isActive = isActive;
+
+    await vendor.save();
+
+    res.status(200).json({ success: true, data: vendor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete a Vendor and cascade delete related data
+// @route   DELETE /api/v1/admin/vendors/:id
+// @access  Private (Admin only)
+exports.deleteVendor = async (req, res) => {
+  try {
+    const vendor = await User.findOne({ _id: req.params.id, role: 'vendor' });
+
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    // Delete associated orders
+    const Order = require('../models/Order');
+    await Order.deleteMany({ vendorId: vendor._id });
+
+    // Delete associated products
+    const Product = require('../models/Product');
+    await Product.deleteMany({ vendorId: vendor._id });
+
+    // Delete customer relationships
+    await VendorCustomer.deleteMany({ vendorId: vendor._id });
+
+    // Delete vendor subscriptions
+    await VendorSubscription.deleteMany({ vendorId: vendor._id });
+
+    // Delete the vendor user itself
+    await User.findByIdAndDelete(vendor._id);
+
+    res.status(200).json({ success: true, message: 'Vendor and all associated records deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Delete all Vendors and cascade delete related data
+// @route   DELETE /api/v1/admin/vendors
+// @access  Private (Admin only)
+exports.deleteAllVendors = async (req, res) => {
+  try {
+    const vendors = await User.find({ role: 'vendor' });
+    const vendorIds = vendors.map(v => v._id);
+
+    // Delete associated orders
+    const Order = require('../models/Order');
+    await Order.deleteMany({ vendorId: { $in: vendorIds } });
+
+    // Delete associated products
+    const Product = require('../models/Product');
+    await Product.deleteMany({ vendorId: { $in: vendorIds } });
+
+    // Delete customer relationships
+    await VendorCustomer.deleteMany({ vendorId: { $in: vendorIds } });
+
+    // Delete vendor subscriptions
+    await VendorSubscription.deleteMany({ vendorId: { $in: vendorIds } });
+
+    // Delete all vendor users
+    await User.deleteMany({ role: 'vendor' });
+
+    res.status(200).json({ success: true, message: 'All vendors and associated records deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  addresses: {
+    type: [String],
+    default: []
+  },
   razorpayKeyId: {
     type: String,
     trim: true,

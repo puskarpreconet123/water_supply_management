@@ -3,6 +3,8 @@ const adminAuth = require('../config/firebase');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+const SubscriptionPlan = require('../models/SubscriptionPlan');
+const VendorSubscription = require('../models/VendorSubscription');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -45,6 +47,30 @@ exports.registerVendor = async (req, res) => {
       role: 'vendor'
     });
 
+    // Automatically assign default Free Trial plan (10k users, 1 month)
+    let freePlan = await SubscriptionPlan.findOne({ name: 'Free Trial' });
+    if (!freePlan) {
+      freePlan = await SubscriptionPlan.create({
+        name: 'Free Trial',
+        price: 0,
+        duration: 'monthly',
+        userLimit: 10000,
+        isActive: true
+      });
+    }
+
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(startDate.getDate() + 30); // 1 month
+
+    await VendorSubscription.create({
+      vendorId: vendor._id,
+      planId: freePlan._id,
+      startDate,
+      endDate,
+      isActive: true
+    });
+
     res.status(201).json({
       success: true,
       token: generateToken(vendor._id),
@@ -85,6 +111,10 @@ exports.login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({ success: false, message: 'Your account has been deactivated. Please contact support/Admin.' });
     }
 
     res.status(200).json({
@@ -155,6 +185,10 @@ exports.verifyOtp = async (req, res) => {
       });
     }
 
+    if (user.isActive === false) {
+      return res.status(403).json({ success: false, message: 'Your account has been deactivated. Please contact support/Admin.' });
+    }
+
     res.status(200).json({
       success: true,
       isNewUser: false,
@@ -164,7 +198,8 @@ exports.verifyOtp = async (req, res) => {
         name: user.name,
         phone: user.phone,
         role: user.role,
-        address: user.address
+        address: user.address,
+        addresses: user.addresses || []
       }
     });
   } catch (error) {
@@ -211,6 +246,7 @@ exports.registerCustomer = async (req, res) => {
       name,
       phone,
       address,
+      addresses: address ? [address] : [],
       role: 'customer'
     });
 
@@ -222,7 +258,8 @@ exports.registerCustomer = async (req, res) => {
         name: user.name,
         phone: user.phone,
         role: user.role,
-        address: user.address
+        address: user.address,
+        addresses: user.addresses || []
       }
     });
   } catch (error) {

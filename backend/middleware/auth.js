@@ -26,6 +26,10 @@ const protect = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
+    if (req.user.isActive === false) {
+      return res.status(403).json({ success: false, message: 'Your account has been deactivated. Please contact support/Admin.' });
+    }
+    
     next();
   } catch (error) {
     return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
@@ -45,4 +49,29 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+// Check if vendor has active subscription
+const checkSubscription = async (req, res, next) => {
+  try {
+    if (req.user && req.user.role === 'vendor') {
+      const VendorSubscription = require('../models/VendorSubscription');
+      const activeSub = await VendorSubscription.findOne({
+        vendorId: req.user._id,
+        isActive: true,
+        endDate: { $gte: new Date() }
+      });
+
+      if (!activeSub) {
+        return res.status(403).json({
+          success: false,
+          message: 'No active subscription found. Please purchase a plan or contact Admin.'
+        });
+      }
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { protect, authorize, checkSubscription };
+

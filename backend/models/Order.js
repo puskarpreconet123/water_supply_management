@@ -55,6 +55,11 @@ const orderSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  deliveryAddress: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   deliveryDate: {
     type: Date
   },

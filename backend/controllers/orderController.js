@@ -10,7 +10,7 @@ const { generateReportPDF } = require('../utils/pdfGenerator');
 // @access  Private (Vendor or Customer)
 exports.createOrder = async (req, res) => {
   try {
-    const { customerId, products, bottlesDelivered, bottlesReturned, status, deliverySlot } = req.body;
+    const { customerId, products, bottlesDelivered, bottlesReturned, status, deliverySlot, deliveryAddress, saveToProfile } = req.body;
     const isVendor = req.user.role === 'vendor';
     const vendorId = isVendor ? req.user._id : req.body.vendorId;
 
@@ -21,6 +21,47 @@ exports.createOrder = async (req, res) => {
     if (!vendorId) {
       return res.status(400).json({ success: false, message: 'Vendor ID is required' });
     }
+
+    // Retrieve Customer's User document to find/update default address
+    const customerUser = await User.findById(customerId);
+    if (!customerUser) {
+      return res.status(404).json({ success: false, message: 'Customer not found' });
+    }
+
+    const finalDeliveryAddress = (deliveryAddress && deliveryAddress.trim()) || customerUser.address || '';
+
+    // If customer requested saving the address to profile
+    if (saveToProfile && deliveryAddress && deliveryAddress.trim()) {
+      const trimmedAddress = deliveryAddress.trim();
+      const exists = customerUser.addresses.some(
+        (addr) => addr.toLowerCase() === trimmedAddress.toLowerCase()
+      );
+      if (!exists && customerUser.addresses.length < 5) {
+        customerUser.addresses.push(trimmedAddress);
+        // Also make it the default active address if customer does not have one
+        if (!customerUser.address) {
+          customerUser.address = trimmedAddress;
+        }
+        await customerUser.save();
+      }
+    }
+
+    // Verify vendor subscription is active
+    const VendorSubscription = require('../models/VendorSubscription');
+    const activeSub = await VendorSubscription.findOne({
+      vendorId,
+      isActive: true,
+      endDate: { $gte: new Date() }
+    });
+    if (!activeSub) {
+      return res.status(403).json({
+        success: false,
+        message: isVendor
+          ? 'No active subscription found. Please purchase a plan or contact Admin.'
+          : 'This distributor cannot accept new orders due to an inactive subscription.'
+      });
+    }
+
 
     // Verify relationship
     const relation = await VendorCustomer.findOne({ vendorId, customerId });
@@ -69,6 +110,7 @@ exports.createOrder = async (req, res) => {
       bottlesReturned: finalReturned,
       status: orderStatus,
       deliverySlot: deliverySlot || '',
+      deliveryAddress: finalDeliveryAddress,
       deliveryDate: orderStatus === 'delivered' ? new Date() : null
     });
 
@@ -131,6 +173,24 @@ exports.updateOrderStatus = async (req, res) => {
         relation.balance += order.totalAmount;
         relation.bottlesOutstanding += (order.bottlesDelivered - order.bottlesReturned);
         await relation.save();
+
+        const { paymentMethod, paymentAmount } = req.body;
+        if (paymentMethod === 'cash') {
+          const cashAmount = paymentAmount !== undefined ? Number(paymentAmount) : order.totalAmount;
+          if (cashAmount > 0) {
+            // Record payment
+            await Payment.create({
+              vendorId: req.user._id,
+              customerId: order.customerId,
+              amount: cashAmount,
+              paymentMethod: 'cash',
+              notes: `Paid on delivery (Order: ${order._id.toString().slice(-6)})`
+            });
+            // Deduct from balance
+            relation.balance -= cashAmount;
+            await relation.save();
+          }
+        }
       }
     }
 

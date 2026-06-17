@@ -88,6 +88,12 @@ exports.createRazorpayOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Subscription plan not found or inactive' });
     }
 
+    // Secure against manual subscription to free plan
+    if (plan.price === 0 || (plan.name && plan.name.toLowerCase().includes('free'))) {
+      return res.status(400).json({ success: false, message: 'Free Trial plans cannot be manually purchased.' });
+    }
+
+
     const config = await RazorpayConfig.findOne();
     if (!config || !config.keyId || !config.keySecret) {
       return res.status(400).json({ success: false, message: 'Payment gateway not configured by Administrator yet' });

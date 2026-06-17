@@ -8,24 +8,25 @@ const {
   addCustomer,
   getCustomers,
   updateProfile,
-  updateCustomerLedger
+  updateCustomerLedger,
+  getVendorPlans
 } = require('../controllers/vendorController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, checkSubscription } = require('../middleware/auth');
 
 router.use(protect);
 router.use(authorize('vendor'));
 
 router.get('/subscription', getSubscription);
-router.post('/products', addProduct);
+router.post('/products', checkSubscription, addProduct);
 router.get('/products', getProducts);
-router.put('/products/:id', updateProduct);
-router.post('/customers', addCustomer);
+router.put('/products/:id', checkSubscription, updateProduct);
+router.post('/customers', checkSubscription, addCustomer);
 router.get('/customers', getCustomers);
-router.put('/customers/:customerId', updateCustomerLedger);
+router.put('/customers/:customerId', checkSubscription, updateCustomerLedger);
 router.put('/profile', updateProfile);
 
 // Allow vendor to view subscription plans
-const { getPlans } = require('../controllers/adminController');
-router.get('/plans', getPlans);
+router.get('/plans', getVendorPlans);
 
 module.exports = router;
+

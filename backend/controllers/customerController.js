@@ -92,7 +92,7 @@ exports.getVendorDetails = async (req, res) => {
 // @access  Private (Customer only)
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, email, address, password } = req.body;
+    const { name, phone, email, address, addresses, password } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -122,6 +122,29 @@ exports.updateProfile = async (req, res) => {
 
     if (name) user.name = name;
     if (address !== undefined) user.address = address;
+    
+    if (addresses !== undefined) {
+      if (!Array.isArray(addresses)) {
+        return res.status(400).json({ success: false, message: 'Addresses must be an array' });
+      }
+      if (addresses.length > 5) {
+        return res.status(400).json({ success: false, message: 'You can save at most 5 addresses' });
+      }
+      // Deduplicate addresses (case-insensitive)
+      const uniqueAddresses = [];
+      const seen = new Set();
+      for (const addr of addresses) {
+        const trimmed = addr.trim();
+        if (trimmed) {
+          const lower = trimmed.toLowerCase();
+          if (!seen.has(lower)) {
+            seen.add(lower);
+            uniqueAddresses.push(trimmed);
+          }
+        }
+      }
+      user.addresses = uniqueAddresses;
+    }
 
     if (password) {
       user.password = password; // pre-save hook will hash this automatically
@@ -138,6 +161,7 @@ exports.updateProfile = async (req, res) => {
         phone: user.phone,
         email: user.email,
         address: user.address,
+        addresses: user.addresses || [],
         role: user.role
       }
     });

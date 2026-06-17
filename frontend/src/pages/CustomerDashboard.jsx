@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Droplet, ShoppingBag, History, CreditCard, LogOut, Phone, ShieldAlert, RefreshCw, Send, Menu, X, Settings } from 'lucide-react';
+import { Droplet, ShoppingBag, History, CreditCard, LogOut, Phone, ShieldAlert, RefreshCw, Send, Menu, X, Settings, Trash2, MapPin, Plus } from 'lucide-react';
 
 const CustomerDashboard = () => {
   const { logout, user, authFetch, refreshUser } = useAuth();
@@ -20,6 +20,9 @@ const CustomerDashboard = () => {
   const [requestQty, setRequestQty] = useState(1);
   const [requestSlot, setRequestSlot] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestAddress, setRequestAddress] = useState('');
+  const [isCustomAddress, setIsCustomAddress] = useState(false);
+  const [saveToProfile, setSaveToProfile] = useState(false);
 
   // Form states - Online Payment
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -29,6 +32,15 @@ const CustomerDashboard = () => {
   const [profileName, setProfileName] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
   const [profileAddress, setProfileAddress] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [newAddress, setNewAddress] = useState('');
+  const [fetchingLocation, setFetchingLocation] = useState(false);
+
+  // Notification states for settings sections
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [addressError, setAddressError] = useState('');
+  const [addressSuccess, setAddressSuccess] = useState('');
 
   // Phone Change States
   const [showPhoneModal, setShowPhoneModal] = useState(false);
@@ -89,20 +101,159 @@ const CustomerDashboard = () => {
       setProfileName(user.name || '');
       setProfilePhone(user.phone || '');
       setProfileAddress(user.address || '');
+      setSavedAddresses(user.addresses || []);
     }
   }, [user]);
+
+  // Sync addresses list to backend
+  const handleSaveAddresses = async (newAddresses, activeAddress) => {
+    setAddressError('');
+    setAddressSuccess('');
+    setLoading(true);
+    try {
+      const res = await authFetch('/customer/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: profileName,
+          addresses: newAddresses,
+          address: activeAddress
+        })
+      });
+      if (res.success) {
+        setAddressSuccess('Addresses updated successfully!');
+        await refreshUser();
+      } else {
+        setAddressError(res.message || 'Failed to save address list');
+      }
+    } catch (err) {
+      setAddressError('Connection failure');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch current geolocation and reverse geocode
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setAddressError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setFetchingLocation(true);
+    setAddressError('');
+    setAddressSuccess('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`
+          );
+          const data = await res.json();
+          if (data && data.display_name) {
+            setNewAddress(data.display_name);
+            setAddressSuccess('Current location retrieved successfully! Review it below and click "Add Address" to save.');
+          } else {
+            setAddressError('Could not resolve geolocation to a readable address.');
+          }
+        } catch (err) {
+          setAddressError('Failed to fetch address details from location server.');
+        } finally {
+          setFetchingLocation(false);
+        }
+      },
+      (error) => {
+        setFetchingLocation(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setAddressError('Location request denied. Please enable location permissions in your browser settings.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setAddressError('Location information is unavailable.');
+            break;
+          case error.TIMEOUT:
+            setAddressError('Location request timed out.');
+            break;
+          default:
+            setAddressError('An unknown geolocation error occurred.');
+            break;
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Add address to saved list
+  const handleAddAddressList = async (e) => {
+    e.preventDefault();
+    setAddressError('');
+    setAddressSuccess('');
+    const trimmedAddress = newAddress.trim();
+    if (!trimmedAddress) return;
+    
+    // Check if duplicate address
+    const duplicate = savedAddresses.some(
+      (addr) => addr.toLowerCase() === trimmedAddress.toLowerCase()
+    );
+    if (duplicate) {
+      setAddressError('This address is already in your saved list.');
+      return;
+    }
+
+    if (savedAddresses.length >= 5) {
+      setAddressError('You can save a maximum of 5 addresses.');
+      return;
+    }
+
+    const updatedAddresses = [...savedAddresses, trimmedAddress];
+    const newDefault = profileAddress || trimmedAddress;
+
+    setSavedAddresses(updatedAddresses);
+    setNewAddress('');
+    if (!profileAddress) {
+      setProfileAddress(newDefault);
+    }
+    await handleSaveAddresses(updatedAddresses, profileAddress || newDefault);
+  };
+
+  // Delete address from list
+  const handleDeleteAddress = async (indexToDelete) => {
+    setAddressError('');
+    setAddressSuccess('');
+    const addressToDelete = savedAddresses[indexToDelete];
+    const updatedAddresses = savedAddresses.filter((_, idx) => idx !== indexToDelete);
+    
+    let newDefault = profileAddress;
+    if (addressToDelete === profileAddress) {
+      newDefault = updatedAddresses[0] || '';
+      setProfileAddress(newDefault);
+    }
+
+    setSavedAddresses(updatedAddresses);
+    await handleSaveAddresses(updatedAddresses, newDefault);
+  };
+
+  // Set selected address as active/default
+  const handleSetDefaultAddress = async (addr) => {
+    setAddressError('');
+    setAddressSuccess('');
+    setProfileAddress(addr);
+    await handleSaveAddresses(savedAddresses, addr);
+  };
 
   // Handle settings update
   const handleUpdateSettings = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setProfileError('');
+    setProfileSuccess('');
     setLoading(true);
 
     try {
       const payload = {
         name: profileName,
-        address: profileAddress
+        address: profileAddress,
+        addresses: savedAddresses
       };
 
       const res = await authFetch('/customer/profile', {
@@ -111,13 +262,13 @@ const CustomerDashboard = () => {
       });
 
       if (res.success) {
-        setSuccess('Profile settings updated successfully!');
+        setProfileSuccess('Profile details saved successfully!');
         await refreshUser();
       } else {
-        setError(res.message || 'Failed to update settings');
+        setProfileError(res.message || 'Failed to update settings');
       }
     } catch (err) {
-      setError('Connection failure');
+      setProfileError('Connection failure');
     } finally {
       setLoading(false);
     }
@@ -168,7 +319,7 @@ const CustomerDashboard = () => {
       });
 
       if (res.success) {
-        setSuccess('Your phone number has been updated successfully!');
+        setProfileSuccess('Your phone number has been updated successfully!');
         setShowPhoneModal(false);
         setNewPhone('');
         setPhoneOtp('');
@@ -191,7 +342,12 @@ const CustomerDashboard = () => {
     setError('');
     setSuccess('');
     if (!requestProd || !requestQty || requestQty < 1) return;
+    if (!requestAddress.trim()) {
+      setError('Please provide a delivery address');
+      return;
+    }
 
+    setLoading(true);
     try {
       const res = await authFetch('/orders', {
         method: 'POST',
@@ -200,7 +356,9 @@ const CustomerDashboard = () => {
           vendorId: selectedVendorId,
           products: [{ productId: requestProd._id, quantity: Number(requestQty) }],
           status: 'pending', // Customer requests as pending
-          deliverySlot: requestSlot
+          deliverySlot: requestSlot,
+          deliveryAddress: requestAddress.trim(),
+          saveToProfile: isCustomAddress && saveToProfile
         })
       });
 
@@ -210,12 +368,22 @@ const CustomerDashboard = () => {
         setRequestProd(null);
         setRequestQty(1);
         setRequestSlot('');
+        setRequestAddress('');
+        setIsCustomAddress(false);
+        setSaveToProfile(false);
         fetchVendorDetails(selectedVendorId);
+
+        // Refresh customer details to get the newly saved address if applicable
+        if (isCustomAddress && saveToProfile) {
+          await refreshUser();
+        }
       } else {
         setError(res.message || 'Failed to place request');
       }
     } catch (err) {
       setError('Connection failure');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -480,109 +648,254 @@ const CustomerDashboard = () => {
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         
-        {/* Banner Notifications for Settings and other tabs */}
-        {(activeTab === 'settings' || vendors.length === 0) && (
-          <div className="max-w-4xl mx-auto">
+        {/* Banner Notifications for active tabs */}
+        {activeTab !== 'settings' && (
+          <div className="w-full">
             {error && (
-              <div className="p-4 mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
-                {error}
+              <div className="p-4 mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex justify-between items-center">
+                <span>{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError('')}
+                  className="p-1 hover:bg-rose-500/10 rounded transition-colors text-rose-400 hover:text-rose-300 cursor-pointer shrink-0"
+                >
+                  <X size={16} />
+                </button>
               </div>
             )}
             {success && (
-              <div className="p-4 mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-                {success}
+              <div className="p-4 mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex justify-between items-center">
+                <span>{success}</span>
+                <button
+                  type="button"
+                  onClick={() => setSuccess('')}
+                  className="p-1 hover:bg-emerald-500/10 rounded transition-colors text-emerald-400 hover:text-emerald-300 cursor-pointer shrink-0"
+                >
+                  <X size={16} />
+                </button>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'settings' ? (
-          <section className="space-y-6 animate-tab-transition max-w-4xl mx-auto">
+          <section className="space-y-6 animate-tab-transition max-w-2xl mx-auto">
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-white">Client Portal Settings</h1>
               <p className="text-xs md:text-sm text-slate-400 mt-1">Manage your personal profile details and delivery address.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Profile Details Form */}
-              <div className="glass-panel rounded-2xl p-6 border border-marine-800 space-y-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-3">
-                  Edit Personal Details
+            <div className="glass-panel rounded-2xl p-6 border border-marine-800 space-y-6">
+              {/* Section 1: Edit Personal Details */}
+              <form onSubmit={handleUpdateSettings} className="space-y-4">
+                <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-2.5">
+                  Personal Details
                 </h2>
-                <form onSubmit={handleUpdateSettings} className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={profileName}
-                        onChange={(e) => setProfileName(e.target.value)}
-                        className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-teal-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Registered Phone</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="tel"
-                          disabled
-                          value={profilePhone}
-                          className="flex-1 bg-marine-950/40 border border-marine-850 rounded-lg p-2.5 text-sm text-slate-400 cursor-not-allowed focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewPhone('');
-                            setPhoneOtp('');
-                            setPhoneOtpSent(false);
-                            setTempPhoneOtp('');
-                            setShowPhoneModal(true);
-                          }}
-                          className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow shadow-teal-950/20"
-                        >
-                          Change Number
-                        </button>
-                      </div>
-                    </div>
+                {profileError && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs animate-tab-transition flex justify-between items-center">
+                    <span>{profileError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setProfileError('')}
+                      className="p-1 hover:bg-rose-500/10 rounded transition-colors text-rose-400 hover:text-rose-300 cursor-pointer shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full mt-6 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {loading ? 'Saving Settings...' : 'Save Settings'}
-                  </button>
-                </form>
-              </div>
-
-              {/* Address Form Card */}
-              <div className="glass-panel rounded-2xl p-6 border border-marine-800 space-y-4 flex flex-col justify-between">
-                <div className="space-y-4">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-3">
-                    Delivery Address Setup
-                  </h2>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Provide your exact home or office address. This address is shown to the water supplier so they can drop off items at your exact location.
-                  </p>
-
-                  <div className="pt-2">
-                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2 font-mono">Current Delivery Address</label>
-                    <textarea
-                      value={profileAddress}
-                      onChange={(e) => setProfileAddress(e.target.value)}
+                )}
+                {profileSuccess && (
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs animate-tab-transition flex justify-between items-center">
+                    <span>{profileSuccess}</span>
+                    <button
+                      type="button"
+                      onClick={() => setProfileSuccess('')}
+                      className="p-1 hover:bg-emerald-500/10 rounded transition-colors text-emerald-400 hover:text-emerald-300 cursor-pointer shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Full Name</label>
+                    <input
+                      type="text"
                       required
-                      rows="4"
-                      placeholder="Enter your complete flat/house number, building name, street address, and landmark."
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
                       className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-teal-500"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Registered Phone</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        disabled
+                        value={profilePhone}
+                        className="flex-1 bg-marine-950/40 border border-marine-850 rounded-lg p-2.5 text-sm text-slate-400 cursor-not-allowed focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewPhone('');
+                          setPhoneOtp('');
+                          setPhoneOtpSent(false);
+                          setTempPhoneOtp('');
+                          setShowPhoneModal(true);
+                        }}
+                        className="px-3.5 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow shadow-teal-950/20 shrink-0"
+                      >
+                        Change Number
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-3 bg-teal-500/5 border border-teal-500/10 rounded-xl text-[11px] text-slate-400 leading-relaxed mt-4">
-                  <span className="font-bold text-teal-400 block mb-0.5">Quick Tip:</span>
-                  Accurate details help delivery personnel find your door faster. Click "Save Settings" on the left after writing.
+
+                <div className="space-y-3 pt-2">
+                  <div className="text-[11px] text-slate-400 flex items-start gap-1">
+                    <span className="font-bold text-teal-400 font-mono shrink-0">Note:</span>
+                    <span>Updating your name requires clicking "Save Details" to apply.</span>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-md shadow-teal-950/20 block"
+                  >
+                    {loading ? 'Saving Details...' : 'Save Details'}
+                  </button>
                 </div>
+              </form>
+
+              {/* Section 2: Delivery Address Setup */}
+              <div className="space-y-4 pt-2">
+                <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-marine-850 pb-2.5">
+                  Delivery Address Setup
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Provide your exact home or office address. You can save up to 5 delivery locations and select one as active.
+                </p>
+                {addressError && (
+                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs animate-tab-transition flex justify-between items-center">
+                    <span>{addressError}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAddressError('')}
+                      className="p-1 hover:bg-rose-500/10 rounded transition-colors text-rose-400 hover:text-rose-300 cursor-pointer shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                {addressSuccess && (
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs animate-tab-transition flex justify-between items-center">
+                    <span>{addressSuccess}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAddressSuccess('')}
+                      className="p-1 hover:bg-emerald-500/10 rounded transition-colors text-emerald-400 hover:text-emerald-300 cursor-pointer shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Active Delivery Address Display */}
+                {profileAddress ? (
+                  <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl space-y-1">
+                    <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block font-mono">Active Delivery Location</span>
+                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">{profileAddress}</p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                    <p className="text-xs text-rose-400 font-medium">No active delivery location selected. Please add or select an address below.</p>
+                  </div>
+                )}
+
+                {/* Saved Addresses List */}
+                <div className="space-y-2 pt-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase font-mono">Saved Addresses ({savedAddresses.length}/5)</label>
+                  {savedAddresses.length > 0 ? (
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {savedAddresses.map((addr, idx) => {
+                        const isActive = addr === profileAddress;
+                        return (
+                          <div key={idx} className={`p-2.5 rounded-lg border text-xs flex justify-between items-start gap-3 transition-all ${
+                            isActive ? 'bg-teal-500/10 border-teal-500/20' : 'bg-marine-950/60 border-marine-850 hover:border-marine-800'
+                          }`}>
+                            <div className="flex-1 space-y-1">
+                              <p className="text-slate-200 leading-relaxed">{addr}</p>
+                              {isActive ? (
+                                <span className="inline-block px-1.5 py-0.5 bg-teal-500/10 text-[9px] font-bold text-teal-400 border border-teal-500/20 rounded">
+                                  Active Default
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetDefaultAddress(addr)}
+                                  className="text-[10px] text-teal-400 hover:text-teal-300 font-bold underline cursor-pointer transition-colors"
+                                >
+                                  Set as Active
+                                </button>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAddress(idx)}
+                              className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer shrink-0"
+                              title="Delete Address"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No saved addresses. Please add one below.</p>
+                  )}
+                </div>
+
+                {/* Add Address Form */}
+                {savedAddresses.length < 5 ? (
+                  <div className="space-y-2 pt-3 border-t border-marine-850">
+                    <label className="block text-xs font-semibold text-slate-400 uppercase font-mono">Add New Address</label>
+                    <textarea
+                      rows="2"
+                      value={newAddress}
+                      onChange={(e) => setNewAddress(e.target.value)}
+                      placeholder="Flat No, Building Name, Street, Landmark..."
+                      className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-teal-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGetCurrentLocation}
+                        disabled={fetchingLocation}
+                        className="flex-1 py-2 px-3 border border-marine-800 rounded-lg text-slate-300 font-semibold text-xs hover:bg-marine-card cursor-pointer flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        {fetchingLocation ? (
+                          <RefreshCw size={14} className="animate-spin text-teal-400" />
+                        ) : (
+                          <MapPin size={14} className="text-teal-400" />
+                        )}
+                        {fetchingLocation ? 'Fetching...' : 'Use Current Location'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddAddressList}
+                        className="flex-1 py-2 px-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs rounded-lg cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Plus size={14} />
+                        Add Address
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl text-[11px] text-amber-400 mt-2">
+                    Address limit reached (5/5). Please delete an address before adding a new one.
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -613,18 +926,6 @@ const CustomerDashboard = () => {
         ) : (
           /* CASE 2: CONNECTED TO A VENDOR */
           <div className="space-y-6">
-            
-            {/* Banner Notification */}
-            {error && (
-              <div className="p-4 mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="p-4 mb-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-                {success}
-              </div>
-            )}
 
             {/* Vendor Selector & Contact Info */}
             <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 border-b border-marine-850 pb-6">
@@ -713,6 +1014,20 @@ const CustomerDashboard = () => {
                             const defaultSlots = ['Morning (8 AM - 12 PM)', 'Afternoon (12 PM - 4 PM)', 'Evening (4 PM - 8 PM)'];
                             const slotsToUse = vendorSlots.length > 0 ? vendorSlots : defaultSlots;
                             setRequestSlot(slotsToUse[0] || '');
+                            
+                            // Initialize address fields
+                            if (user?.address) {
+                              setRequestAddress(user.address);
+                              setIsCustomAddress(false);
+                            } else if (user?.addresses && user.addresses.length > 0) {
+                              setRequestAddress(user.addresses[0]);
+                              setIsCustomAddress(false);
+                            } else {
+                              setRequestAddress('');
+                              setIsCustomAddress(true);
+                            }
+                            setSaveToProfile(false);
+
                             setShowRequestModal(true);
                           }}
                           className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded text-xs font-bold transition-colors cursor-pointer"
@@ -759,7 +1074,13 @@ const CustomerDashboard = () => {
                               )}
                             </td>
                             <td className="p-4 font-semibold text-white">
-                              {ord.products.map(p => `${p.name} (x${p.quantity})`).join(', ')}
+                              <div>{ord.products.map(p => `${p.name} (x${p.quantity})`).join(', ')}</div>
+                              {ord.deliveryAddress && (
+                                <div className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-normal" title="Delivery Address">
+                                  <MapPin size={12} className="text-teal-500 shrink-0" />
+                                  <span className="truncate max-w-[220px]">{ord.deliveryAddress}</span>
+                                </div>
+                              )}
                             </td>
                             <td className="p-4 text-xs font-mono text-slate-300">
                               {ord.status === 'delivered' ? `Delivered: ${ord.bottlesDelivered} | Returned: ${ord.bottlesReturned}` : '—'}
@@ -850,8 +1171,8 @@ const CustomerDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="w-full max-w-md glass-panel-glow rounded-2xl p-6 border border-teal-500/30">
             <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center p-3 rounded-full bg-teal-500/10 mb-3 border border-teal-500/20 text-teal-400">
-                <Send size={24} className="animate-float" />
+              <div className="inline-flex items-center  animate-float justify-center p-3 rounded-full bg-teal-500/10 mb-3 border border-teal-500/20 text-teal-400">
+                <Send size={24} />
               </div>
               <h2 className="text-xl font-bold text-white">Request Water Jar</h2>
               <p className="text-xs text-slate-400 mt-1">
@@ -891,6 +1212,58 @@ const CustomerDashboard = () => {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Delivery Address</label>
+                <select
+                  value={isCustomAddress ? 'custom' : requestAddress}
+                  onChange={(e) => {
+                    if (e.target.value === 'custom') {
+                      setIsCustomAddress(true);
+                      setRequestAddress('');
+                    } else {
+                      setIsCustomAddress(false);
+                      setRequestAddress(e.target.value);
+                    }
+                  }}
+                  className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-teal-500 cursor-pointer mb-3"
+                >
+                  {user?.address && (
+                    <option value={user.address}>Default: {user.address}</option>
+                  )}
+                  {savedAddresses
+                    .filter(addr => addr !== user?.address)
+                    .map((addr, index) => (
+                      <option key={index} value={addr}>{addr}</option>
+                    ))}
+                  <option value="custom">-- Use a different address --</option>
+                </select>
+
+                {isCustomAddress && (
+                  <div className="space-y-3 animate-tab-transition">
+                    <textarea
+                      rows="2"
+                      required
+                      value={requestAddress}
+                      onChange={(e) => setRequestAddress(e.target.value)}
+                      placeholder="Flat No, Building Name, Street, Landmark..."
+                      className="w-full bg-marine-950 border border-marine-800 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-teal-500"
+                    />
+                    
+                    {savedAddresses.length < 5 && (
+                      <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={saveToProfile}
+                          onChange={(e) => setSaveToProfile(e.target.checked)}
+                          className="rounded border-marine-800 text-teal-600 focus:ring-teal-500 bg-marine-950 cursor-pointer"
+                        />
+                        Save this address to profile for future use
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="border-t border-marine-850 pt-3 mt-3 flex justify-between items-center text-xs text-slate-400">
                 <span>Estimated cost:</span>
                 <span className="font-bold text-white text-sm">Rs. {requestProd.price * requestQty}</span>
@@ -899,16 +1272,18 @@ const CustomerDashboard = () => {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => { setShowRequestModal(false); setRequestProd(null); setRequestQty(1); }}
-                  className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer"
+                  className="flex-1 py-2.5 border border-marine-850 rounded-lg text-slate-400 font-semibold text-sm hover:bg-marine-card cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm rounded-lg cursor-pointer transition-colors"
+                  disabled={loading}
+                  className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm rounded-lg cursor-pointer transition-colors disabled:opacity-50"
                 >
-                  Submit Request
+                  {loading ? 'Submitting...' : 'Submit Request'}
                 </button>
               </div>
             </form>
@@ -987,6 +1362,17 @@ const CustomerDashboard = () => {
                 You will need to verify the new phone number using a secure OTP.
               </p>
             </div>
+
+            {error && (
+              <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center animate-tab-transition">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="p-3 mb-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs text-center animate-tab-transition">
+                {success}
+              </div>
+            )}
 
             {!phoneOtpSent ? (
               <form onSubmit={handleRequestPhoneChange} className="space-y-4">
