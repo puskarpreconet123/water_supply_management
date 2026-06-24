@@ -9,24 +9,23 @@
   --color-marine-500: #0ea5e9;
   --color-marine-600: #0286c7;
   --color-marine-700: #036ba1;
-  --color-marine-800: #d2e4f5; /* Light ice-blue border */
-  --color-marine-850: #c0daf2; /* Slightly darker light blue border */
-  --color-marine-900: #1e3a8a; /* Deep blue accents */
-  --color-marine-950: #f4f8fc; /* Very fresh light ice-blue body bg */
-  --color-marine-card: #ffffff; /* Pure white card background */
-  --color-marine-sidebar: #ebf3fc; /* Very soft light blue sidebar background */
+  --color-marine-800: #d2e4f5;
+  --color-marine-850: #c0daf2;
+  --color-marine-900: #1e3a8a;
+  --color-marine-950: #f4f8fc;
+  --color-marine-card: #ffffff;
+  --color-marine-sidebar: #ebf3fc;
 
   --color-accent-teal: #0ea5e9;
   --color-accent-cyan: #06b6d4;
   --color-accent-blue: #2563eb;
 
-  /* Invert slate colors in theme for light mode readability */
   --color-slate-100: #334155;
   --color-slate-200: #475569;
   --color-slate-300: #475569;
   --color-slate-400: #57687e;
   --color-slate-500: #64748b;
-  
+
   --animate-float: float 4s ease-in-out infinite;
   --animate-pulse-glow: pulseGlow 2.5s ease-in-out infinite;
   --animate-liquid: liquid 8s ease-in-out infinite;
@@ -49,7 +48,6 @@ body {
   @apply bg-marine-950 text-slate-100 font-sans antialiased overflow-x-hidden;
 }
 
-/* Headings and white text elements on light layouts should be dark slate/navy */
 .glass-panel h1, .glass-panel h2, .glass-panel h3, .glass-panel h4,
 .glass-panel-glow h1, .glass-panel-glow h2, .glass-panel-glow h3,
 main h1, main h2, main h3, main h4,
@@ -61,7 +59,6 @@ aside .text-white {
   color: #0f172a;
 }
 
-/* Ensure headings and text inside dark background containers remain white */
 .bg-gradient-to-r h1, .bg-gradient-to-r h2, .bg-gradient-to-r h3, .bg-gradient-to-r h4,
 .bg-gradient-to-br h1, .bg-gradient-to-br h2, .bg-gradient-to-br h3, .bg-gradient-to-br h4,
 .bg-marine-900 h1, .bg-marine-900 h2, .bg-marine-900 h3, .bg-marine-900 h4,
@@ -73,13 +70,11 @@ aside .text-white {
   color: #ffffff !important;
 }
 
-/* Input text fields must show up dark and sharp */
 input, select, textarea {
   color: #0f172a !important;
   background-color: #ffffff !important;
 }
 
-/* Ensure button text and specific background actions stay crisp white */
 button.text-white,
 a.text-white,
 button .text-white,
@@ -98,115 +93,57 @@ button .text-white,
   color: #ffffff !important;
 }
 
-/* Override bright text colors to use dark equivalents for proper light theme contrast */
-.text-cyan-400 {
-  color: #0284c7 !important; /* sky-700 or cyan-700 */
-}
-.text-teal-400 {
-  color: #0f766e !important; /* teal-700 */
-}
-.text-sky-400 {
-  color: #0284c7 !important; /* sky-700 */
-}
-.text-cyan-300 {
-  color: #0369a1 !important;
-}
-.text-emerald-400 {
-  color: #10b981 !important; /* emerald-600 (darker emerald) */
-}
-.text-rose-400 {
-  color: #e11d48 !important; /* rose-600 */
-}
-.text-amber-400 {
-  color: #d97706 !important; /* amber-600 */
-}
-.text-amber-300 {
-  color: #b45309 !important;
-}
-.text-slate-300 {
-  color: #475569 !important;
-}
-.text-slate-400 {
-  color: #64748b !important;
-}
-.text-slate-200 {
-  color: #334155 !important;
-}
+.text-cyan-400 { color: #0284c7 !important; }
+.text-teal-400 { color: #0f766e !important; }
+.text-sky-400 { color: #0284c7 !important; }
+.text-cyan-300 { color: #0369a1 !important; }
+.text-emerald-400 { color: #10b981 !important; }
+.text-rose-400 { color: #e11d48 !important; }
+.text-amber-400 { color: #d97706 !important; }
+.text-amber-300 { color: #b45309 !important; }
+.text-slate-300 { color: #475569 !important; }
+.text-slate-400 { color: #64748b !important; }
+.text-slate-200 { color: #334155 !important; }
 
-/* Force hover text classes to override base text color overrides */
-.hover\:text-white:hover {
-  color: #ffffff !important;
-}
-.hover\:text-slate-900:hover {
-  color: #0f172a !important;
-}
-button.border-marine-880:hover {
-  color: #ffffff !important;
-}
+.hover\:text-white:hover { color: #ffffff !important; }
+.hover\:text-slate-900:hover { color: #0f172a !important; }
+button.border-marine-880:hover { color: #ffffff !important; }
 
-/* Override dark/neon containers to have light-mode equivalent colors */
 .bg-emerald-500\/10 {
-  background-color: rgba(16, 185, 129, 0.12) !important; /* Light green pill */
+  background-color: rgba(16, 185, 129, 0.12) !important;
   color: #10b981 !important;
 }
-.bg-emerald-500\/10:hover {
-  background-color: #10b981 !important;
-  color: #ffffff !important;
-}
-.bg-emerald-500\/10:hover svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
+.bg-emerald-500\/10:hover { background-color: #10b981 !important; color: #ffffff !important; }
+.bg-emerald-500\/10:hover svg { color: #ffffff !important; stroke: #ffffff !important; }
 
 .bg-rose-500\/10 {
-  background-color: rgba(244, 63, 94, 0.12) !important; /* Light red pill */
+  background-color: rgba(244, 63, 94, 0.12) !important;
   color: #e11d48 !important;
 }
-.bg-rose-500\/10:hover {
-  background-color: #e11d48 !important;
-  color: #ffffff !important;
-}
-.bg-rose-500\/10:hover svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
+.bg-rose-500\/10:hover { background-color: #e11d48 !important; color: #ffffff !important; }
+.bg-rose-500\/10:hover svg { color: #ffffff !important; stroke: #ffffff !important; }
 
 .bg-amber-500\/10 {
-  background-color: rgba(245, 158, 11, 0.12) !important; /* Light amber pill */
+  background-color: rgba(245, 158, 11, 0.12) !important;
   color: #d97706 !important;
 }
-.bg-amber-500\/10:hover {
-  background-color: #d97706 !important;
-  color: #ffffff !important;
-}
-.bg-amber-500\/10:hover svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
-}
+.bg-amber-500\/10:hover { background-color: #d97706 !important; color: #ffffff !important; }
+.bg-amber-500\/10:hover svg { color: #ffffff !important; stroke: #ffffff !important; }
 
-/* Dev OTP Box in Login */
 .bg-cyan-950\/60 {
-  background-color: #e0f2fe !important; /* Light sky blue */
+  background-color: #e0f2fe !important;
   border-color: #bae6fd !important;
   color: #0369a1 !important;
 }
 
-/* Red Logout / Cancel Button Overrides */
 .bg-rose-950\/40 {
-  background-color: #ffe4e6 !important; /* Light rose-100 */
+  background-color: #ffe4e6 !important;
   border-color: #fecdd3 !important;
   color: #e11d48 !important;
 }
-.bg-rose-950\/40:hover {
-  background-color: #fecdd3 !important;
-  color: #be123c !important;
-}
-.bg-rose-950\/40:hover svg {
-  color: #be123c !important;
-  stroke: #be123c !important;
-}
+.bg-rose-950\/40:hover { background-color: #fecdd3 !important; color: #be123c !important; }
+.bg-rose-950\/40:hover svg { color: #be123c !important; stroke: #be123c !important; }
 
-/* Assign Subscription Plan buttons */
 .bg-cyan-600\/10, .bg-sky-600\/10 {
   background-color: #e0f2fe !important;
   border-color: #bae6fd !important;
@@ -217,28 +154,16 @@ button.border-marine-880:hover {
   color: #ffffff !important;
 }
 
-/* Light theme info boxes */
 .bg-teal-500\/10, .bg-teal-600\/10 {
   background-color: #ccfbf1 !important;
   border-color: #99f6e4 !important;
   color: #0f766e !important;
 }
 
-/* Custom Scrollbars to match light ocean theme */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-marine-950; }
+::-webkit-scrollbar-thumb { @apply bg-marine-800 rounded-full border border-marine-950 hover:bg-marine-700; }
 
-::-webkit-scrollbar-track {
-  @apply bg-marine-950;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-marine-800 rounded-full border border-marine-950 hover:bg-marine-700;
-}
-
-/* Glassmorphism helpers updated for Light theme */
 .glass-panel {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
@@ -255,99 +180,428 @@ button.border-marine-880:hover {
   box-shadow: 0 10px 30px rgba(6, 182, 212, 0.08);
 }
 
-/* Animated wave effect for authentication background matching card */
 .wave-container {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 100px;
-  overflow: hidden;
-  line-height: 0;
+  position: absolute; bottom: 0; left: 0;
+  width: 100%; height: 100px;
+  overflow: hidden; line-height: 0;
   transform: rotate(180deg);
 }
-
 .wave-container svg {
-  position: relative;
-  display: block;
-  width: calc(150% + 1.3px);
-  height: 90px;
+  position: relative; display: block;
+  width: calc(150% + 1.3px); height: 90px;
   transform: rotateY(180deg);
 }
+.wave-container .shape-fill { fill: #ffffff; }
 
-.wave-container .shape-fill {
-  fill: #ffffff; /* White to match the login card background */
-}
-
-/* Ripple styling helper for clicks */
 @keyframes ripple {
-  0% {
-    transform: scale(0);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(4);
-    opacity: 0;
-  }
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
 }
-
-.ripple-effect {
-  position: relative;
-  overflow: hidden;
-}
-
+.ripple-effect { position: relative; overflow: hidden; }
 .ripple-effect::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100px;
-  height: 100px;
-  background: rgba(14, 165, 233, 0.2);
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.5s, opacity 0.5s;
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 100px; height: 100px;
+  background: rgba(14, 165, 233, 0.2); border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0); opacity: 0;
+  pointer-events: none; transition: transform 0.5s, opacity 0.5s;
 }
-
 .ripple-effect:active::after {
   transform: translate(-50%, -50%) scale(2);
-  opacity: 1;
-  transition: 0s;
+  opacity: 1; transition: 0s;
 }
 
-/* Fix white-on-white text during hover on elements with hover:bg-marine-card */
 .hover\:bg-marine-card:hover {
-  background-color: #dbeafe !important; /* Soft light blue hover background */
-  color: #0f172a !important; /* Dark navy text for optimal contrast */
+  background-color: #dbeafe !important;
+  color: #0f172a !important;
 }
-
-/* Ensure SVG/icon children inside these hovered elements inherit the dark color */
 .hover\:bg-marine-card:hover svg {
   color: #0f172a !important;
   stroke: #0f172a !important;
 }
 
-/* Water drop-splash transition between tabs */
 @keyframes dropSplash {
-  0% {
-    transform: translateY(-12px) scaleY(1.02);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(2px) scaleY(0.98);
-    opacity: 0.9;
-  }
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
+  0% { transform: translateY(-12px) scaleY(1.02); opacity: 0; }
+  60% { transform: translateY(2px) scaleY(0.98); opacity: 0.9; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
-
 .animate-tab-transition {
   animation: dropSplash 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
+/* ================================================================
+   CUSTOMER PORTAL — PREMIUM DARK GRADIENT THEME (SCOPED)
+   ================================================================ */
 
+.customer-portal,
+.customer-portal * {
+  font-family: 'Inter', sans-serif;
+}
 
+.customer-portal {
+  background: linear-gradient(135deg, #0e1a2e 0%, #152236 55%, #111d30 100%);
+}
+
+/* Override global light-mode color overrides inside portal */
+.customer-portal .text-white,
+.customer-portal main .text-white,
+.customer-portal aside .text-white,
+.customer-portal .glass-panel .text-white,
+.customer-portal .glass-panel h1,
+.customer-portal .glass-panel h2,
+.customer-portal .glass-panel h3,
+.customer-portal .glass-panel h4,
+.customer-portal main h1,
+.customer-portal main h2,
+.customer-portal main h3,
+.customer-portal main h4,
+.customer-portal aside h1,
+.customer-portal aside h2,
+.customer-portal aside h3,
+.customer-portal aside h4 {
+  color: #ffffff !important;
+}
+
+.customer-portal .text-slate-100 { color: #f1f5f9 !important; }
+.customer-portal .text-slate-200 { color: #e2e8f0 !important; }
+.customer-portal .text-slate-300 { color: #cbd5e1 !important; }
+.customer-portal .text-slate-400 { color: #94a3b8 !important; }
+.customer-portal .text-slate-500 { color: #64748b !important; }
+.customer-portal .text-teal-400  { color: #2dd4bf !important; }
+.customer-portal .text-teal-300  { color: #5eead4 !important; }
+.customer-portal .text-cyan-400  { color: #22d3ee !important; }
+.customer-portal .text-cyan-300  { color: #67e8f9 !important; }
+.customer-portal .text-emerald-400 { color: #34d399 !important; }
+.customer-portal .text-emerald-300 { color: #6ee7b7 !important; }
+.customer-portal .text-rose-400  { color: #fb7185 !important; }
+.customer-portal .text-rose-300  { color: #fda4af !important; }
+.customer-portal .text-amber-400 { color: #fbbf24 !important; }
+.customer-portal .text-amber-300 { color: #fcd34d !important; }
+.customer-portal .text-purple-400 { color: #c084fc !important; }
+.customer-portal .text-violet-400 { color: #a78bfa !important; }
+
+.customer-portal .hover\:text-white:hover { color: #ffffff !important; }
+.customer-portal .hover\:text-teal-300:hover { color: #5eead4 !important; }
+.customer-portal .hover\:text-rose-300:hover { color: #fda4af !important; }
+.customer-portal .hover\:text-emerald-300:hover { color: #6ee7b7 !important; }
+
+/* Dark inputs inside portal */
+.customer-portal input,
+.customer-portal select,
+.customer-portal textarea {
+  color: #f1f5f9 !important;
+  background-color: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.customer-portal input::placeholder,
+.customer-portal textarea::placeholder { color: #64748b !important; }
+.customer-portal input:focus,
+.customer-portal select:focus,
+.customer-portal textarea:focus {
+  border-color: #7c3aed !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22) !important;
+  background-color: rgba(124, 58, 237, 0.07) !important;
+}
+.customer-portal select option {
+  background-color: #1e2d40 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Override badge/pill overrides from global CSS */
+.customer-portal .bg-emerald-500\/10 {
+  background-color: rgba(52, 211, 153, 0.12) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+.customer-portal .bg-rose-500\/10 {
+  background-color: rgba(251, 113, 133, 0.12) !important;
+  color: #fb7185 !important;
+  border-color: rgba(251, 113, 133, 0.25) !important;
+}
+.customer-portal .bg-amber-500\/10 {
+  background-color: rgba(251, 191, 36, 0.12) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.25) !important;
+}
+.customer-portal .bg-teal-500\/10,
+.customer-portal .bg-teal-600\/10 {
+  background-color: rgba(45, 212, 191, 0.1) !important;
+  border-color: rgba(45, 212, 191, 0.2) !important;
+  color: #2dd4bf !important;
+}
+.customer-portal .bg-rose-950\/40 {
+  background-color: rgba(251, 113, 133, 0.1) !important;
+  border-color: rgba(251, 113, 133, 0.2) !important;
+  color: #fb7185 !important;
+}
+.customer-portal .bg-rose-950\/40:hover {
+  background-color: rgba(251, 113, 133, 0.2) !important;
+  color: #fda4af !important;
+}
+.customer-portal .bg-rose-950\/40:hover svg {
+  color: #fda4af !important;
+  stroke: #fda4af !important;
+}
+.customer-portal .bg-cyan-950\/60 {
+  background-color: rgba(124, 58, 237, 0.15) !important;
+  border-color: rgba(124, 58, 237, 0.3) !important;
+  color: #c084fc !important;
+}
+
+/* Dark scrollbars */
+.customer-portal ::-webkit-scrollbar { width: 4px; height: 4px; }
+.customer-portal ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+.customer-portal ::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.4);
+  border-radius: 9999px;
+}
+.customer-portal ::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.65);
+}
+
+/* ---- Utility classes ---- */
+.cp-glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.cp-glass-bright {
+  background: rgba(255, 255, 255, 0.11);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.cp-gradient-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #22d3ee 55%, #2dd4bf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cp-gradient-text-warm {
+  background: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cp-glow-teal   { box-shadow: 0 0 24px rgba(45, 212, 191, 0.3), 0 0 60px rgba(45, 212, 191, 0.08); }
+.cp-glow-purple { box-shadow: 0 0 24px rgba(124, 58, 237, 0.4), 0 0 60px rgba(124, 58, 237, 0.12); }
+.cp-glow-rose   { box-shadow: 0 0 24px rgba(251, 113, 133, 0.35), 0 0 60px rgba(251, 113, 133, 0.1); }
+.cp-glow-emerald { box-shadow: 0 0 24px rgba(52, 211, 153, 0.35), 0 0 60px rgba(52, 211, 153, 0.1); }
+
+/* ---- Keyframe animations ---- */
+@keyframes cpSlideInRight {
+  from { transform: translateX(110%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes cpFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cpSlideUpFade {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes cpShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes cpGlowPulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 1; }
+}
+@keyframes cpCardEntrance {
+  from { transform: translateY(22px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0)     scale(1);   opacity: 1; }
+}
+@keyframes cpNavBarGrow {
+  from { transform: translateY(-50%) scaleY(0); }
+  to   { transform: translateY(-50%) scaleY(1); }
+}
+@keyframes cpBounceScale {
+  0%   { transform: scale(0.85); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes cpOrbitFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33%       { transform: translateY(-8px) rotate(5deg); }
+  66%       { transform: translateY(-4px) rotate(-3deg); }
+}
+@keyframes cpRippleOut {
+  0%   { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+/* ---- Animation utility classes ---- */
+.cp-drawer-enter   { animation: cpSlideInRight 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.cp-fade-in        { animation: cpFadeIn 0.25s ease-out forwards; }
+.cp-slide-up       { animation: cpSlideUpFade 0.38s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+.cp-card-entrance  { animation: cpCardEntrance 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+.cp-bounce-scale   { animation: cpBounceScale 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.cp-orbit-float    { animation: cpOrbitFloat 6s ease-in-out infinite; }
+.cp-glow-pulse-anim { animation: cpGlowPulse 2.5s ease-in-out infinite; }
+
+.cp-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.1)  50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: cpShimmer 1.8s infinite linear;
+}
+
+/* Stagger children card entrances */
+.cp-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.cp-stagger > *:nth-child(2) { animation-delay: 70ms; }
+.cp-stagger > *:nth-child(3) { animation-delay: 140ms; }
+.cp-stagger > *:nth-child(4) { animation-delay: 210ms; }
+.cp-stagger > *:nth-child(5) { animation-delay: 280ms; }
+.cp-stagger > *:nth-child(6) { animation-delay: 350ms; }
+
+/* ---- Nav items ---- */
+.cp-nav-item {
+  position: relative;
+  transition: background 0.2s ease, color 0.2s ease;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cp-nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px; height: 65%;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #a78bfa, #22d3ee);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cp-nav-item.active::before { transform: translateY(-50%) scaleY(1); }
+.cp-nav-item.active {
+  background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.08)) !important;
+}
+.cp-nav-item:not(.active):hover { background: rgba(255,255,255,0.05) !important; }
+
+/* ---- Product cards ---- */
+.cp-product-card {
+  position: relative;
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+  overflow: hidden;
+}
+.cp-product-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #7c3aed, #06b6d4, #14b8a6);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.cp-product-card:hover::before { opacity: 1; }
+.cp-product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(124,58,237,0.25);
+}
+
+/* ---- Stat cards ---- */
+.cp-stat-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.cp-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+
+/* ---- Status badge classes ---- */
+.cp-badge-delivered {
+  background: rgba(52,211,153,0.12) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52,211,153,0.25) !important;
+  box-shadow: 0 0 10px rgba(52,211,153,0.15) !important;
+}
+.cp-badge-pending {
+  background: rgba(251,191,36,0.12) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251,191,36,0.25) !important;
+  animation: cpGlowPulse 2s ease-in-out infinite !important;
+}
+.cp-badge-cancelled {
+  background: rgba(251,113,133,0.12) !important;
+  color: #fb7185 !important;
+  border: 1px solid rgba(251,113,133,0.25) !important;
+}
+
+/* ---- Gradient CTA button ---- */
+.cp-btn-primary {
+  background: linear-gradient(135deg, #7c3aed 0%, #0891b2 100%);
+  color: #ffffff !important;
+  position: relative;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.cp-btn-primary:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(124,58,237,0.4);
+}
+.cp-btn-primary:active { transform: translateY(0); }
+
+.cp-btn-ghost {
+  background: rgba(255,255,255,0.05);
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s ease;
+}
+.cp-btn-ghost:hover {
+  background: rgba(255,255,255,0.1) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+
+.cp-btn-danger {
+  background: rgba(251,113,133,0.1);
+  color: #fb7185 !important;
+  border: 1px solid rgba(251,113,133,0.2);
+  transition: all 0.2s ease;
+}
+.cp-btn-danger:hover {
+  background: rgba(251,113,133,0.2) !important;
+  color: #fda4af !important;
+  border-color: rgba(251,113,133,0.35) !important;
+}
+
+/* ---- Drawer overlay ---- */
+.cp-drawer-overlay { animation: cpFadeIn 0.22s ease-out forwards; }
+
+/* ---- Timeline dots ---- */
+.cp-timeline-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.cp-timeline-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.2;
+  filter: blur(5px);
+}
+
+/* ---- Focus visible ---- */
+.customer-portal button:focus-visible,
+.customer-portal input:focus-visible,
+.customer-portal select:focus-visible,
+.customer-portal textarea:focus-visible {
+  outline: 2px solid rgba(124,58,237,0.65) !important;
+  outline-offset: 2px !important;
+}
